@@ -1,0 +1,27 @@
+[package]
+name = "bits-ai-video-creator-core"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+tokio.workspace = true
+thiserror.workspace = true
+async-trait = "0.1"
+base64 = "0.23"
+chrono-tz = { version = "0.9", features = ["serde"] }
+ring = "0.17"
+cron = "0.12"
+regex = "1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "http2", "stream"] }
+rusqlite = { version = "0.32", features = ["bundled"] }
+tokio-util = { version = "0.7", features = ["rt"] }
+url = "2"
+zeroize = "1"
+
+[dev-dependencies]
+tempfile = "3"

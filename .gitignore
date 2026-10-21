@@ -1,0 +1,62 @@
+# Dependencies and build output
+node_modules/
+dist/
+dist-ssr/
+target/
+src-tauri/target/
+coverage/
+.vite/
+.vitest/
+*.tsbuildinfo
+
+# Local references and research material (not part of the product)
+sources/
+
+# Secrets and release credentials
+.secrets/
+.env
+.env.*
+!.env.example
+*.jks
+*.keystore
+*.p12
+*.pfx
+key.properties
+keystore.properties
+*.pem
+*.key
+!src-tauri/icons/*.png
+
+# Generated Tauri / Android state
+src-tauri/gen/schemas/
+src-tauri/gen/android/.gradle/
+src-tauri/gen/android/build/
+src-tauri/gen/android/app/build/
+src-tauri/gen/android/local.properties
+src-tauri/gen/android/keystore.properties
+src-tauri/gen/android/app/tauri.properties
+src-tauri/gen/android/app/tauri.build.gradle.kts
+src-tauri/gen/android/app/proguard-tauri.pro
+src-tauri/gen/android/app/src/main/assets/tauri.conf.json
+src-tauri/gen/android/app/src/main/jniLibs/
+src-tauri/gen/android/app/src/main/**/generated/
+src-tauri/gen/android/.tauri/
+src-tauri/gen/android/tauri.settings.gradle
+
+# Runtime data
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+backups/
+webview-profiles/
+
+# Logs, captures, and OS/editor files
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp

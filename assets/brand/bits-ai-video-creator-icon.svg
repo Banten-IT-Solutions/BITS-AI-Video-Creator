@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024" fill="none">
+  <defs>
+    <linearGradient id="bg" x1="160" y1="96" x2="864" y2="944" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1713"/>
+      <stop offset="0.55" stop-color="#08131A"/>
+      <stop offset="1" stop-color="#071016"/>
+    </linearGradient>
+    <linearGradient id="frame" x1="236" y1="216" x2="792" y2="824" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#7AF2B8"/>
+      <stop offset="0.52" stop-color="#56E5A3"/>
+      <stop offset="1" stop-color="#68A8FF"/>
+    </linearGradient>
+    <linearGradient id="play" x1="404" y1="356" x2="692" y2="668" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#B6FFD8"/>
+      <stop offset="0.4" stop-color="#56E5A3"/>
+      <stop offset="1" stop-color="#68A8FF"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0" cy="0" r="1" gradientTransform="translate(512 512) rotate(90) scale(420)" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#56E5A3" stop-opacity="0.2"/>
+      <stop offset="1" stop-color="#56E5A3" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="shadow" x="160" y="160" width="704" height="720" filterUnits="userSpaceOnUse">
+      <feDropShadow dx="0" dy="26" stdDeviation="30" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+    <filter id="playGlow" x="330" y="290" width="450" height="450" filterUnits="userSpaceOnUse">
+      <feGaussianBlur stdDeviation="22"/>
+    </filter>
+  </defs>
+
+  <rect x="44" y="44" width="936" height="936" rx="218" fill="url(#bg)"/>
+  <rect x="45" y="45" width="934" height="934" rx="217" stroke="#7AF2B8" stroke-opacity="0.16" stroke-width="2"/>
+  <rect x="70" y="70" width="884" height="884" rx="196" stroke="#FFFFFF" stroke-opacity="0.045" stroke-width="2"/>
+  <circle cx="512" cy="512" r="420" fill="url(#glow)"/>
+
+  <!-- Film frame -->
+  <g filter="url(#shadow)">
+    <rect x="218" y="212" width="588" height="600" rx="92" stroke="url(#frame)" stroke-width="26"/>
+  </g>
+
+  <!-- Perforation marks -->
+  <g fill="#56E5A3" fill-opacity="0.42">
+    <rect x="276" y="286" width="18" height="44" rx="9"/>
+    <rect x="276" y="374" width="18" height="44" rx="9"/>
+    <rect x="276" y="462" width="18" height="44" rx="9"/>
+    <rect x="276" y="550" width="18" height="44" rx="9"/>
+    <rect x="276" y="638" width="18" height="44" rx="9"/>
+    <rect x="730" y="286" width="18" height="44" rx="9"/>
+    <rect x="730" y="374" width="18" height="44" rx="9"/>
+    <rect x="730" y="462" width="18" height="44" rx="9"/>
+    <rect x="730" y="550" width="18" height="44" rx="9"/>
+    <rect x="730" y="638" width="18" height="44" rx="9"/>
+  </g>
+
+  <!-- Play mark -->
+  <path d="M426 360C426 338.909 443.909 321 465 321C471.635 321 478.139 322.677 483.888 325.84L684.839 436.657C706.148 448.495 713.676 475.503 701.839 496.812C697.805 503.991 692.008 509.798 684.839 513.843L483.888 624.66C478.139 627.823 471.635 629.5 465 629.5C443.909 629.5 426 611.591 426 590.5V360Z" fill="url(#play)" fill-opacity="0.28" filter="url(#playGlow)"/>
+  <path d="M426 360C426 338.909 443.909 321 465 321C471.635 321 478.139 322.677 483.888 325.84L684.839 436.657C706.148 448.495 713.676 475.503 701.839 496.812C697.805 503.991 692.008 509.798 684.839 513.843L483.888 624.66C478.139 627.823 471.635 629.5 465 629.5C443.909 629.5 426 611.591 426 590.5V360Z" fill="url(#play)"/>
+
+  <!-- Spark -->
+  <path d="M782 184C782 220.359 753.359 249 717 249C753.359 249 782 277.641 782 314C782 277.641 810.641 249 847 249C810.641 249 782 220.359 782 184Z" fill="#7AF2B8"/>
+
+  <!-- Timeline -->
+  <g>
+    <rect x="330" y="744" width="364" height="10" rx="5" fill="#FFFFFF" fill-opacity="0.1"/>
+    <rect x="330" y="744" width="178" height="10" rx="5" fill="#56E5A3"/>
+    <circle cx="508" cy="749" r="15" fill="#071016" stroke="#7AF2B8" stroke-width="8"/>
+  </g>
+</svg>

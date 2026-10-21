@@ -1,0 +1,22 @@
+pub mod ai;
+pub mod db;
+pub mod engine;
+pub mod error;
+pub mod import_export;
+pub mod legacy;
+pub mod license;
+pub mod models;
+pub mod plugins;
+pub mod provider_tools;
+pub mod providers;
+pub mod redaction;
+pub mod scheduler;
+pub mod secrets;
+pub mod studio;
+pub mod tts;
+pub mod validation;
+
+pub use db::Database;
+pub use error::{CoreError, Result};
+pub use models::*;
+pub use studio::*;

@@ -1,0 +1,241 @@
+@import "tailwindcss";
+@config "../tailwind.config.ts";
+
+:root {
+  --bg: 8 11 14;
+  --surface: 12 17 21;
+  --panel: 16 22 27;
+  --raised: 22 30 36;
+  --line: 35 46 54;
+  --highlight: 255 255 255;
+  --fg: 233 240 236;
+  --muted: 145 161 154;
+  --faint: 100 116 109;
+  --accent: 86 229 163;
+  --accent-strong: 48 199 132;
+  --accent-soft: 17 45 35;
+  --info: 104 168 255;
+  --warn: 246 190 113;
+  --danger: 250 128 123;
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  --bg: 243 246 244;
+  --surface: 255 255 255;
+  --panel: 250 252 251;
+  --raised: 239 244 241;
+  --line: 215 225 220;
+  --highlight: 0 0 0;
+  --fg: 20 32 27;
+  --muted: 87 104 97;
+  --faint: 126 141 134;
+  --accent: 15 145 91;
+  --accent-strong: 10 121 76;
+  --accent-soft: 222 246 234;
+  --info: 33 113 214;
+  --warn: 166 102 12;
+  --danger: 196 53 48;
+  color-scheme: light;
+}
+
+* {
+  border-color: rgb(var(--line));
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: rgb(var(--bg));
+  background-image:
+    radial-gradient(1100px 520px at 82% -10%, rgb(var(--accent) / 0.07), transparent 62%),
+    radial-gradient(900px 460px at -8% 100%, rgb(var(--info) / 0.05), transparent 60%);
+  background-attachment: fixed;
+  color: rgb(var(--fg));
+  font-family: Inter, ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+::selection {
+  background: rgb(var(--accent) / 0.28);
+  color: rgb(var(--fg));
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgb(var(--line)) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: rgb(var(--line));
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: rgb(var(--faint) / 0.65);
+  border: 3px solid transparent;
+  background-clip: padding-box;
+}
+
+:focus-visible {
+  outline: 2px solid rgb(var(--accent) / 0.8);
+  outline-offset: 2px;
+}
+
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mobile-safe-bottom {
+  padding-bottom: max(0.25rem, env(safe-area-inset-bottom));
+}
+
+.mobile-safe-top {
+  padding-top: env(safe-area-inset-top);
+}
+
+.workflow-editor-shell {
+  padding-bottom: calc(58px + env(safe-area-inset-bottom));
+}
+
+@media (min-width: 768px) {
+  .workflow-editor-shell {
+    padding-bottom: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  body {
+    overscroll-behavior-y: none;
+  }
+}
+
+input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+.surface-grid {
+  background-image:
+    linear-gradient(rgb(var(--line) / 0.35) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--line) / 0.35) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+.scroll-shadow {
+  mask-image: linear-gradient(to bottom, transparent, black 10px, black calc(100% - 10px), transparent);
+}
+
+/* React Flow */
+.react-flow {
+  --xy-background-color: rgb(var(--surface));
+  --xy-background-pattern-color: rgb(var(--line));
+  --xy-edge-stroke: rgb(var(--faint));
+  --xy-edge-stroke-selected: rgb(var(--accent));
+  --xy-connectionline-stroke: rgb(var(--accent));
+  --xy-minimap-background-color: rgb(var(--panel));
+  --xy-minimap-mask-background-color: rgb(var(--bg) / 0.7);
+  --xy-controls-button-background-color: rgb(var(--panel));
+  --xy-controls-button-background-color-hover: rgb(var(--raised));
+  --xy-controls-button-color: rgb(var(--muted));
+  --xy-controls-button-color-hover: rgb(var(--fg));
+  --xy-controls-button-border-color: rgb(var(--line));
+}
+
+.react-flow__attribution {
+  background: transparent;
+  color: rgb(var(--faint));
+  font-size: 9px;
+  opacity: 0.55;
+}
+
+.react-flow__attribution a {
+  color: inherit;
+}
+
+.react-flow__edge-path {
+  stroke-width: 1.6;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke: rgb(var(--accent));
+  stroke-width: 2;
+}
+
+.react-flow__edge-text {
+  fill: rgb(var(--muted));
+  font-size: 10px;
+  font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+}
+
+.react-flow__edge-textbg {
+  fill: rgb(var(--surface));
+}
+
+.react-flow__handle {
+  width: 10px;
+  height: 10px;
+  background: rgb(var(--panel));
+  border: 2px solid rgb(var(--faint));
+  transition: border-color 120ms ease, background 120ms ease;
+}
+
+.react-flow__handle:hover,
+.react-flow__handle.connectingfrom {
+  border-color: rgb(var(--accent));
+  background: rgb(var(--accent));
+}
+
+.react-flow__node.selected .react-flow__handle {
+  border-color: rgb(var(--accent));
+}
+
+.react-flow__controls {
+  border-radius: 10px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgb(0 0 0 / 0.24);
+}
+
+.react-flow__controls-button {
+  width: 30px;
+  height: 30px;
+}
+
+.react-flow__minimap {
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgb(var(--line));
+}
+
+.react-flow__node {
+  font-family: inherit;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
