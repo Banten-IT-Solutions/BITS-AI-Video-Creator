@@ -87,8 +87,9 @@ at 1440x900:
 
 The license gate rendered the exact plans: **Rp20.000/bulan**, **Rp200.000/tahun**, and
 **Rp500.000/lifetime**. The published build is license-enforced (`Mode: enforced`) and displays the
-device id for optional binding. The published AppImage was then activated with a locally issued
-lifetime token bound to the runtime device id; the workspace dashboard loaded successfully.
+device id for optional binding. The published AppImage was then launched with the runtime device id
+and a locally issued lifetime token stored in its local app metadata; the workspace dashboard loaded
+successfully.
 
 Earlier local-only checks on the pre-release build also confirmed:
 
