@@ -69,8 +69,8 @@ desktop application. Fees, taxes, refunds, and fulfillment remain the responsibi
 | Platform | Architecture | Distribution | Status in this workspace |
 |---|---|---|---|
 | Linux | x86_64 | `.deb`, AppImage | Built and headless-smoke-tested; interactive desktop UI is not automated |
-| Windows | x86_64 | NSIS installer | Built by CI; **not runtime-verified** on the Linux build host |
-| Android | arm64-v8a | Signed APK / AAB (sideload / GitHub Releases) | Built and signature-verified locally; runtime not verified without a device or emulator |
+| Windows | x86_64 | NSIS installer | Built and published by CI; **not runtime-verified** on the Linux build host |
+| Android | arm64-v8a | Signed APK / AAB (sideload / GitHub Releases) | Built and signature-verified locally and in CI; runtime not verified without a device or emulator |
 | iOS | — | — | Not supported in 1.0.0 |
 
 Linux desktop requires WebKitGTK 4.1 and a Secret Service implementation (GNOME Keyring, KWallet
@@ -81,8 +81,11 @@ WebView2 runtime. Android requires Android 7.0 (API 24) or newer.
 
 This repository does not claim production runtime verification for Windows or Android. The Linux
 build host cannot execute Windows binaries, and no Android emulator, KVM device, or system image is
-assumed. CI compiles and signs the release artifacts and verifies what can be verified mechanically. The Android APK/AAB in this workspace were also built and signature-verified locally on the Linux host.
-Install and smoke-test those artifacts on real hardware before relying on them in production.
+assumed. CI compiles and signs the release artifacts and verifies what can be verified
+mechanically. The Android APK/AAB were also built and signature-verified locally on the Linux host.
+The published asset hashes, signatures, and smoke results are recorded in
+[docs/RELEASE_VERIFICATION_1.0.0.md](docs/RELEASE_VERIFICATION_1.0.0.md). Install and smoke-test the
+artifacts on real hardware before relying on them in production.
 
 Windows installers are **unsigned** until a trusted Authenticode code-signing certificate is
 configured. SmartScreen warnings are expected. Updater artifacts are separately signed with the

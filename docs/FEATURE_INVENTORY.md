@@ -22,10 +22,10 @@ platforms.
 | Single-instance lock | Implemented | Unavailable | Desktop-only plugin; not runtime-tested here |
 | System tray / background service | Unavailable | Unavailable | Not implemented |
 | iOS build | Unavailable | — | Requires macOS/Xcode and Apple credentials |
-| Windows NSIS installer | Workflow-defined | — | Release workflow builds it; not executed on this Linux host |
-| Linux `.deb` / AppImage | Implemented | — | Local bundle/smoke verification recorded in the release verification doc |
-| Android APK | — | Built locally | Signed arm64 APK; runtime not verified here |
-| Android AAB | — | Built locally | Signed arm64 AAB; runtime not verified here |
+| Windows NSIS installer | Built (CI) | — | Published v1.0.0 asset; not executed on this Linux host |
+| Linux `.deb` / AppImage | Built and published | — | Published v1.0.0 assets; checksums, signatures, and headless smoke in the release verification doc |
+| Android APK | — | Built locally and in CI | Published signed arm64 APK; runtime not verified here |
+| Android AAB | — | Built locally and in CI | Published signed arm64 AAB; runtime not verified here |
 | Android runtime launch | — | Unverified | No emulator/KVM/system image reported on this host |
 
 ## Studio — storyboards
@@ -181,12 +181,12 @@ platforms.
 | In-app update check | Implemented | Unavailable | Android returns explicit error |
 | Android APK update by install | — | Documented | Signed APK from GitHub Releases |
 | Windows Authenticode signing | Unavailable | — | No trusted certificate available |
-| Android release signing | — | Built locally | Signed APK/AAB; CI keystore injection configured |
+| Android release signing | — | Built locally and in CI | Published signed APK/AAB; keystore injection in CI |
 
 ## Verification summary
 
-Final command results are recorded in `docs/RELEASE_VERIFICATION_1.0.0.md`. At the time this file was
-prepared:
+Results recorded for the published `v1.0.0` release are in
+`docs/RELEASE_VERIFICATION_1.0.0.md`.
 
 | Check | Result |
 |---|---|
@@ -196,9 +196,11 @@ prepared:
 | `cargo test --workspace` | Pass — 90/90 (77 core + 13 Tauri) |
 | `cargo fmt --all -- --check` | Pass |
 | `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
-| Linux `.deb` / AppImage | Built; hashes recorded in the verification document |
-| Android APK/AAB | Built and signature-verified locally |
-| Windows runtime | Not verified |
+| CI run 39674218615 | Pass |
+| Release run 39674266933 | Pass |
+| Linux `.deb` / AppImage | Built and published; checksums and updater signatures verified; headless smoke pass |
+| Android APK/AAB | Built locally and in CI; published signatures verified; runtime not verified |
+| Windows NSIS | Built in CI; published updater signature verified; runtime and Authenticode not verified |
 | Android runtime UI/keyring | Not verified |
 
 ## Legacy compatibility

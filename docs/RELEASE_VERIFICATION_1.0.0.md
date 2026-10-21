@@ -1,16 +1,17 @@
 # BITS AI Video Creator 1.0.0 — Release Verification
 
-Status: **local release-candidate verification complete; GitHub Actions release run pending.** This
-document records only evidence produced in this workspace. It does not claim a published GitHub
-Release yet. The CI section is updated after the tag workflow finishes.
+Status: **published and mechanically verified from GitHub Actions. Windows and Android runtime
+behavior remain unverified on real hardware.**
 
-Verification date: 2026-10-21
-Host: Linux x86_64 (container), Xvfb for headless UI checks
-Source state: final 1.0.0 working tree before the release commit
-Tag: `v1.0.0` (not pushed at the time of the local checks)
-Repository: `Banten-IT-Solutions/BITS-AI-Video-Creator`
+Release: <https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/releases/tag/v1.0.0>
+Tag: `v1.0.0` at `bb0d40ed35669e7918711810b82f58c7597d37ec`
+Release workflow: [run 39674266933](https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/actions/runs/39674266933)
+CI workflow: [run 39674218615](https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/actions/runs/39674218615)
+Published: 2026-10-21
 
 ## Source verification
+
+Run locally on the final 1.0.0 source tree before the release commit:
 
 | Check | Command | Result |
 |---|---|---|
@@ -21,52 +22,61 @@ Repository: `Banten-IT-Solutions/BITS-AI-Video-Creator`
 | Clippy | `cargo clippy --workspace --all-targets -- -D warnings` | Pass |
 | Rust tests | `cargo test --workspace` | **90 passed** (77 core + 13 Tauri) |
 
-The Linux and Android release binaries were built with
-`BITS_LICENSE_PUBKEY=mD6rxHPWOGvBkQWkoyfDUO7/L2iZ7OJ3VYYZCwDlY0U=`. The key is present in the
-release binary at offset `4184709` and in the packaged Android native library at offset `3336723`.
-Development builds without this variable intentionally run in `open` mode and are not the paid
-release.
+The same CI run (`39674218615`) completed successfully for frontend checks, Rust checks, Windows
+release compile, and the Android debug build.
 
-## Local Linux artifacts
+The release builds embed
+`BITS_LICENSE_PUBKEY=mD6rxHPWOGvBkQWkoyfDUO7/L2iZ7OJ3VYYZCwDlY0U=`. The CI Android native library
+contains the key at offset `3340595`. Development builds without the variable intentionally run in
+`open` mode and are not the paid release.
 
-These are the final local bundles after the last UI pass. The release workflow copies them to
-hyphenated asset names.
+## Published assets
 
-| Local file | Bytes | SHA-256 |
+All values below are from the published `SHA256SUMS.txt` and the downloaded release assets.
+
+| Asset | Bytes | SHA-256 |
 |---|---:|---|
-| `BITS AI Video Creator_1.0.0_amd64.deb` | 10,503,504 | `cc185075539df6e986ca83074c7866de72c07e03629d2d53aa7a35402970adf5` |
-| `BITS AI Video Creator_1.0.0_amd64.AppImage` | 115,214,840 | `47b4a83fc085b0988a74c9edfc361f4bcfbd272367911a6befd4ea7ac84250f0` |
+| `BITS-AI-Video-Creator_1.0.0_amd64.AppImage` | 87,988,728 | `dc01db3f16373da5f3abf73595543438591368fdb63d8ba65f1984d81c93ae82` |
+| `BITS-AI-Video-Creator_1.0.0_amd64.deb` | 10,464,866 | `63ef880acd105948fb267f787850222d9f7b536b62bdd04543d2ab7bca6f6311` |
+| `BITS-AI-Video-Creator_1.0.0_universal.apk` | 26,658,903 | `6693b1b77670c2936ede1dc9e4dbf5c512ed0d8d0de0e060c85c1da515cae1c3` |
+| `BITS-AI-Video-Creator_1.0.0_release.aab` | 10,088,453 | `7026a806f8ad614eb3594c7f76cdff032a22adc69c1056a755c7328ee31da925` |
+| `BITS-AI-Video-Creator_1.0.0_x64-setup.exe` | 5,466,165 | `9376601db26ab42faa7f27c47b1b1e997ad591809aa2a275e4a1754fbb4ff0be` |
+| `latest.json` | 7,470 | `82f2ade8f7e7a471d7377030ccad92d7c67a134cb90e156288c3831fdf4a0bed` |
+| `SHA256SUMS.txt` | 1,114 | `078f5a1f6bbd9f4fb5d26205ef3569ee5bb087f1dcda653a9033ef75df48ed2c` |
 
-Both artifacts were built with `TAURI_SIGNING_PRIVATE_KEY` and
-`TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Their `.sig` files were verified with the matching minisign
-public key:
+`sha256sum -c SHA256SUMS.txt` succeeds for every listed asset, signature file, signature report,
+and `latest.json`. The checksum file does not hash itself. No keystore, private key,
+`keystore.properties`, license private key, or updater private key was uploaded as a release asset.
 
-```text
-Signature and comment signature verified
-Trusted comment: timestamp:1792614891  file:BITS AI Video Creator_1.0.0_amd64.deb  version:1.0.0
-Signature and comment signature verified
-Trusted comment: timestamp:1792614891  file:BITS AI Video Creator_1.0.0_amd64.AppImage  version:1.0.0
-```
+The public URL
+<https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/releases/latest/download/latest.json>
+resolves to the published manifest.
 
-Package metadata:
+## Updater signatures and manifest
 
-```text
-Package: bits-ai-video-creator
-Version: 1.0.0
-Architecture: amd64
-Description: Storyboard, voiceover, and AI video production studio
-```
+All three desktop updater files verify with the embedded minisign public key:
 
-The desktop entry uses `Name=BITS AI Video Creator`, `Exec=bits-ai-video-creator`, and
-`Icon=bits-ai-video-creator`.
+- AppImage — signature verified.
+- Debian package — signature verified.
+- Windows NSIS installer — signature verified.
+
+The base64 signatures inside `latest.json` also verify for the same three files. The manifest reports
+version `1.0.0`, publication date `2026-10-21T21:30:36Z`, and these platform entries:
+
+- `linux-x86_64-appimage`
+- `linux-x86_64-deb`
+- `windows-x86_64-nsis`
+
+All URLs point to the `v1.0.0` release assets. Windows uses the `x64-setup.exe` signature; the
+workflow does not publish or reference a `.nsis.zip` updater bundle.
 
 ## Linux runtime smoke
 
-The final AppImage was run under `dbus-run-session` with Xvfb at 1440x900:
+The published AppImage was downloaded, made executable, and run under `dbus-run-session` with Xvfb
+at 1440x900:
 
 - Window ID resolved and `xdotool getwindowname` returned
   `BITS AI Video Creator — AI Video Studio`.
-- Renderer screenshot captured successfully.
 - Application data directory: `id.co.bits.aivideocreator`.
 - Database: `bits-ai-video-creator.db`.
 - `PRAGMA integrity_check` → `ok`.
@@ -75,33 +85,28 @@ The final AppImage was run under `dbus-run-session` with Xvfb at 1440x900:
 - Default `updateEndpoint`:
   `https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/releases/latest/download/latest.json`.
 
-Interactive checks against the final bundle:
+The license gate rendered the exact plans: **Rp20.000/bulan**, **Rp200.000/tahun**, and
+**Rp500.000/lifetime**. The published build is license-enforced (`Mode: enforced`) and displays the
+device id for optional binding.
 
-- The license gate rendered the exact plans: **Rp20.000/bulan**, **Rp200.000/tahun**, and
-  **Rp500.000/lifetime**, with the expected Indonesian term/description copy.
-- A locally issued lifetime token with the release device ID activated the workspace and loaded the
+Earlier local-only checks on the pre-release build also confirmed:
+
+- A locally issued lifetime token with the device id activated the workspace and loaded the
   dashboard.
 - The Storyboards page rendered its empty state; a storyboard titled
-  `The Last Light Over Banten` was created through the UI. The persisted row reports one scene, one
+  `The Last Light Over Banten` was created through the UI. The persisted row reported one scene, one
   shot, and 5 seconds total runtime.
 - The Voiceover page rendered the scene list, script editor, preview controls, and provider TTS
-  panel. Full provider audio generation was not exercised because no provider endpoint/key was
+  panel. Provider audio generation was not exercised because no provider endpoint/key was
   configured.
 
-The smoke used the release AppImage, not a debug build. The container session has no real Secret
-Service; vault-backed secret operations were not exercised end to end here. The app was terminated
-by the test timeout after the checks.
+The smoke used the published release AppImage. The container session has no real Secret Service;
+vault-backed secret operations were not exercised end to end. The app was terminated by the test
+timeout after the checks.
 
 ## Android artifacts
 
-Built locally with the release keystore, package `id.co.bits.aivideocreator`:
-
-| Local file | Bytes | SHA-256 |
-|---|---:|---|
-| `app-universal-release.apk` | 26,648,743 | `61c0e5878fb46875f410241240a7e411a9c24239a2c1a9b2aec4f7006013dc56` |
-| `app-universal-release.aab` | 10,086,274 | `6a17791ba67181156bc02a7b1599af96a851f199139746395ad03d212a8862a6` |
-
-APK:
+Built and signed by the release workflow with the release keystore:
 
 - Package: `id.co.bits.aivideocreator`
 - Version name: `1.0.0`; version code: `1000000`
@@ -118,62 +123,63 @@ AAB:
 
 - `jarsigner -verify` exit code `0`.
 - Certificate SHA-256 matches the APK certificate.
-- The release certificate is self-signed, as expected for private/sideloaded Android distribution.
-  `jarsigner -strict` will report certificate-path and timestamp warnings for a self-signed
-  certificate; it is not used as the release gate.
+- The certificate is self-signed, as expected for private/sideloaded distribution. `jarsigner
+  -strict` reports certificate-path and timestamp warnings for that self-signed certificate; it is
+  not used as the release gate.
 
 Android runtime UI, Android Keystore behavior, and installation were **not** verified: no physical
-device, emulator, KVM, or system image is available on this host. The APK/AAB checks above are
+device, emulator, KVM, or system image is available on this Linux host. The APK/AAB checks are
 mechanical build and signature checks only.
 
-## Release-engineering dry run
+## Windows installer
 
-The release workflow YAML parses successfully. A clean checkout materialized from the staged index
-(tracked files only) built an Android debug APK successfully; the only tracked generated Android
-source was `TauriActivity.kt`, and Tauri regenerated the remaining generated Kotlin/Wry files. This
-confirms the Android CI job does not depend on ignored local build state.
+The release workflow produced a 5,466,165-byte PE32 NSIS installer on `windows-latest`. Its
+minisign signature verifies. It is **not Authenticode-signed**, so SmartScreen warnings are expected.
 
-The `latest.json` generation logic was exercised in a local staging directory with the final Linux
-assets and a placeholder Windows installer/signature. It produced the expected
-`linux-x86_64-appimage`, `linux-x86_64-deb`, and `windows-x86_64-nsis` entries and a checksum file
-that did not hash itself. Real Windows signatures and the actual GitHub Release remain pending CI.
+The Windows installer has not been run on this Linux build host. Runtime behavior, WebView2
+installation, upgrade handling, and shortcut/uninstaller behavior remain unverified.
 
 ## Brand audit
 
-The final Linux AppImage, Debian package, APK, and AAB were extracted and scanned for the former
-product name and identifier variants. No matches were found. The APK contains only
-`libbits_ai_video_creator_lib.so`; a stale former-brand native library found during an earlier local
-Android build was removed before the final APK/AAB were rebuilt. The Windows installer must be
-scanned after the CI run because it cannot be produced on this Linux host.
+The published AppImage, Debian package, APK, AAB, and Windows installer were downloaded and searched
+for the former product name and identifier variants. No matches were found. The APK contains only
+`libbits_ai_video_creator_lib.so`. A stale former-brand native library found during an earlier local
+Android build was removed before the final APK/AAB were rebuilt.
 
-See [BRAND_AUDIT_1.0.0.md](BRAND_AUDIT_1.0.0.md) for the command list and scope.
+See [BRAND_AUDIT_1.0.0.md](BRAND_AUDIT_1.0.0.md) for the audit scope.
 
-## CI release verification
+## Release-engineering checks
 
-**Pending.** The release workflow has not run yet. When it completes, record here:
+- The release workflow YAML parses successfully.
+- A clean checkout materialized from the staged index built an Android debug APK successfully; the
+  only tracked generated Android source was `TauriActivity.kt`, and Tauri regenerated the remaining
+  generated Kotlin/Wry files. This confirmed the Android CI job does not depend on ignored local
+  build state.
+- The `latest.json` generation logic was exercised locally with the final Linux assets and a
+  placeholder Windows installer/signature before the actual release run. The real manifest was
+  then generated by the release workflow and verified against the published files.
+- The release asset listings contained no keystore, private-key, or signing-secret files.
 
-- workflow run ID and URL;
-- tag commit SHA;
-- published asset names, sizes, and SHA-256 values from `SHA256SUMS.txt`;
-- `latest.json` contents and signature checks for all three desktop updater targets;
-- Windows installer size/hash and signature verification;
-- Android CI APK/AAB hashes and certificate fingerprint;
-- confirmation that no private keys, keystore files, or `keystore.properties` were uploaded.
+## Local pre-release build evidence
 
-The release workflow builds Linux, Windows, and Android artifacts independently, then publishes a
-single GitHub Release with `latest.json`, `SHA256SUMS.txt`, signature files, and signature reports.
-A release is not considered production-verified until the Windows and Android artifacts have also
-been installed and exercised on real hardware.
+Before the release workflow, the same source tree was built locally on the Linux host:
+
+| Local artifact | Bytes | SHA-256 |
+|---|---:|---|
+| `BITS AI Video Creator_1.0.0_amd64.deb` | 10,503,504 | `cc185075539df6e986ca83074c7866de72c07e03629d2d53aa7a35402970adf5` |
+| `BITS AI Video Creator_1.0.0_amd64.AppImage` | 115,214,840 | `47b4a83fc085b0988a74c9edfc361f4bcfbd272367911a6befd4ea7ac84250f0` |
+| `app-universal-release.apk` | 26,648,743 | `61c0e5878fb46875f410241240a7e411a9c24239a2c1a9b2aec4f7006013dc56` |
+| `app-universal-release.aab` | 10,086,274 | `6a17791ba67181156bc02a7b1599af96a851f199139746395ad03d212a8862a6` |
+
+These local hashes are not the published hashes; CI runners produce different bundle sizes and
+signatures. The published artifacts in the table above are authoritative.
 
 ## Not verified
 
-- Windows installer runtime behavior: built by CI, not executable on this Linux host.
-- Windows Authenticode: not configured; the installer is unsigned and SmartScreen warnings are
-  expected.
-- Android runtime UI, provider WebViews, Android Keystore, and background execution: no device or
-  emulator.
-- End-to-end in-app update: local manifest/signature paths are tested, but no update has been
-  applied through the UI.
+- Windows installer runtime behavior and Authenticode signing.
+- Android runtime UI, provider WebViews, Android Keystore, and background execution.
+- End-to-end in-app update: manifest and signatures are verified, but no update has been applied
+  through the UI.
 - Real desktop Secret Service: the headless container session is not a user desktop keyring.
 - Payment processing or automatic license issuance: intentionally external at
   <https://bits.co.id>; the app verifies signed tokens only.

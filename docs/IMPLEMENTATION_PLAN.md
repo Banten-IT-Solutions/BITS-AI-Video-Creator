@@ -7,7 +7,7 @@ for BITS AI Video Creator 1.0.0. It is deliberately explicit about what has **no
 
 - Product: BITS AI Video Creator 1.0.0
 - Package/bundle identifier: `id.co.bits.aivideocreator`
-- Repository: `Banten-IT-Solutions/BITS-AI-Video-Creator` (public, release pending)
+- Repository: [Banten-IT-Solutions/BITS-AI-Video-Creator](https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator) (public, 1.0.0 released)
 - Platforms: Linux x86_64, Windows x86_64, Android arm64-v8a
 - Out of scope: iOS, Google Play, Apple Developer Program, hosted services, arbitrary code
   execution nodes, provider DOM automation, payment-gateway integration
@@ -66,11 +66,11 @@ for BITS AI Video Creator 1.0.0. It is deliberately explicit about what has **no
 | Mobile command stubs | Complete | Provider views/tools/profile/updater return explicit errors |
 | Responsive Android UI | Complete | Drawer, bottom nav, bottom-sheet editor panels |
 | Release signing configuration | Complete | Gradle reads ignored `keystore.properties` |
-| Signed APK | Complete locally | Built with `id.co.bits.aivideocreator`; v2 signature verified |
-| Signed AAB | Complete locally | Built; `jarsigner -verify` exit 0 |
+| Signed APK | Complete locally and in CI | Built with `id.co.bits.aivideocreator`; v2 signature verified |
+| Signed AAB | Complete locally and in CI | Built; `jarsigner -verify` exit 0 |
 | Runtime launch/keyring test | **Blocked** | No emulator, KVM, or system image on build host |
 
-Android APK evidence from the local build host:
+Android APK evidence from the local build host and the release workflow (identical package, certificate, and signature scheme):
 
 - Package: `id.co.bits.aivideocreator`
 - Version name: `1.0.0`
@@ -94,10 +94,10 @@ Android APK evidence from the local build host:
 | Rust formatting | Complete | `cargo fmt --all -- --check` |
 | Clippy with warnings denied | Complete | `cargo clippy --workspace --all-targets -- -D warnings` |
 | Rust tests | Complete | 77 core + 13 Tauri = 90 passed |
-| `.deb` and AppImage | Complete | Final bundles in `target/release/bundle/`; hashes in release verification |
+| `.deb` and AppImage | Complete | Local and CI bundles; published hashes in release verification |
 | Release key embedded | Complete | `BITS_LICENSE_PUBKEY` present in release binaries |
 | Updater signatures | Complete | `.deb.sig`, `.AppImage.sig` verified with minisign |
-| Headless startup smoke | Complete | Window title, data directory, schema v3, SQLite integrity `ok` |
+| Headless startup smoke | Complete | Local and published AppImage; window title, data directory, schema v3, SQLite integrity `ok` |
 | Interactive desktop UI automation | **Not done** | No automated GUI driver configured |
 | Real Secret Service desktop session | **Not done** | Headless smoke used a container session |
 
@@ -111,11 +111,12 @@ Android APK evidence from the local build host:
 | Updater key injection | Complete | Tauri signing environment |
 | License public key injection | Complete | `BITS_LICENSE_PUBKEY` workflow env |
 | Checksums | Complete | `SHA256SUMS.txt` in release job |
-| `latest.json` generation | Implemented; not yet run | Linux + Windows updater entries |
-| GitHub repository creation | **Pending** | Target repository does not exist yet |
-| Push/tag/release | **Pending** | No commit, push, tag, or workflow run yet |
-| Windows CI build | **Pending** | Requires release workflow run |
-| Android release CI build | **Pending** | Local signed build complete; CI path prepared |
+| `latest.json` generation | Complete | Published manifest has Linux AppImage, Linux deb, and Windows NSIS entries |
+| GitHub repository creation | Complete | Public repository with description, homepage, and topics |
+| Push/tag/release | Complete | Orphan `main`, tag `v1.0.0`, release workflow run `39674266933` succeeded |
+| Windows CI build | Complete | NSIS installer built and updater signature verified; runtime not tested |
+| Android release CI build | Complete | Signed APK/AAB built and signature-verified in CI |
+| Checksums and signatures | Complete | `SHA256SUMS.txt` and all three updater signatures verified after download |
 
 ## Phase 7 — Documentation
 
@@ -130,7 +131,7 @@ Android APK evidence from the local build host:
 | Implementation plan | Complete |
 | Brand audit | Complete |
 | Release notes | Complete |
-| Release verification | Local evidence recorded; CI results pending |
+| Release verification | Complete; published asset hashes and CI run IDs recorded |
 | Third-party notices | Complete |
 
 ## Verification commands
@@ -165,21 +166,22 @@ npx tauri android build --apk --target aarch64 --ci
 npx tauri android build --aab --target aarch64 --ci
 ```
 
-## Remaining release checklist
+## Remaining post-release verification
 
-1. Re-run all verification commands after the final UI and documentation pass.
-2. Rebuild Linux bundles and rerun the headless smoke, updater signature check, hashes, and brand scan.
-3. Create `Banten-IT-Solutions/BITS-AI-Video-Creator` and configure the release secrets.
-4. Push a clean orphan `main`, tag `v1.0.0`, and run the release workflow.
-5. Verify the CI artifacts, checksums, `latest.json`, and Android signatures.
-6. Update the release verification document with actual CI results, then set repository metadata.
-7. Test the Linux AppImage on a desktop with a real Secret Service.
-8. Install Windows and Android artifacts on real hardware before making production claims.
+1. Test the Linux AppImage on a desktop with a real Secret Service and interactive desktop session.
+2. Install the Windows NSIS installer on Windows 10/11 and exercise install, launch, update, and
+   uninstall paths.
+3. Install the Android APK on a physical arm64 device or emulator; exercise launch, storyboard and
+   voiceover persistence, provider browser links, and Android Keystore secret storage.
+4. Apply a signed desktop update through the in-app updater with a real `latest.json` and confirm
+   restart behavior.
+5. Obtain an Authenticode certificate before representing the Windows installer as signed.
+6. Revisit the upstream `glib` 0.18 advisory when Tauri's GTK stack permits an upgrade.
 
 ## Known gaps and risks
 
-- The Windows installer is built by CI; it has not been run on this Linux build host and is not
-  Authenticode-signed.
+- The Windows installer is built by CI, its updater signature is verified, but it has not been run
+  on this Linux build host and is not Authenticode-signed.
 - Android has been compiled and signed but not launched on a device or emulator.
 - Android lacks embedded provider sessions, the download bridge, the in-app updater, and reliable
   background execution.
@@ -188,5 +190,6 @@ npx tauri android build --aab --target aarch64 --ci
 - Payment and automatic token issuance are external/manual. No payment gateway is integrated.
 - The updater manifest is generated by the workflow, but the in-app update flow has not been
   runtime-tested end to end.
-- No full GUI automation is configured; interactive UI behavior is based on type checks, builds,
-  source review, and a startup screenshot.
+- No full GUI automation is configured; launch, license gate, storyboard creation, and voiceover
+  page rendering were checked with Xvfb/xdotool screenshots in addition to tests and builds. Other
+  interactive paths remain source- and test-reviewed only.

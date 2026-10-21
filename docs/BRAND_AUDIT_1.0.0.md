@@ -76,12 +76,14 @@ Result: no matches. The APK contains one native library,
 `lib/arm64-v8a/libbits_ai_video_creator_lib.so`. Both artifacts declare package
 `id.co.bits.aivideocreator`.
 
-### Release artifacts
+### Published release artifacts
 
 The release workflow normalizes Linux and Windows artifact names to
-`BITS-AI-Video-Creator_*`. The Windows installer is built by CI and must be scanned again after the
-first release run; it is not reproducible on this Linux host. Exact checksums and signature results
-are recorded in [RELEASE_VERIFICATION_1.0.0.md](RELEASE_VERIFICATION_1.0.0.md).
+`BITS-AI-Video-Creator_*`. The published Linux bundles, Android APK/AAB, and Windows NSIS installer
+were downloaded from the `v1.0.0` release and searched for the retired tokens and identifier
+variants. No matches were found. The Windows installer is NSIS-compressed, so this is a literal
+content scan rather than a full runtime or installer-script review. Exact checksums and signature
+results are recorded in [RELEASE_VERIFICATION_1.0.0.md](RELEASE_VERIFICATION_1.0.0.md).
 
 ## Non-brand references
 
