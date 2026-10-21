@@ -87,12 +87,11 @@ at 1440x900:
 
 The license gate rendered the exact plans: **Rp20.000/bulan**, **Rp200.000/tahun**, and
 **Rp500.000/lifetime**. The published build is license-enforced (`Mode: enforced`) and displays the
-device id for optional binding.
+device id for optional binding. The published AppImage was then activated with a locally issued
+lifetime token bound to the runtime device id; the workspace dashboard loaded successfully.
 
 Earlier local-only checks on the pre-release build also confirmed:
 
-- A locally issued lifetime token with the device id activated the workspace and loaded the
-  dashboard.
 - The Storyboards page rendered its empty state; a storyboard titled
   `The Last Light Over Banten` was created through the UI. The persisted row reported one scene, one
   shot, and 5 seconds total runtime.
