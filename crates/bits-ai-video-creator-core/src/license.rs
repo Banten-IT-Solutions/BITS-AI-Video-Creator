@@ -282,10 +282,7 @@ impl LicenseManager {
         match self.verify_token(&token) {
             Ok(payload) => self.status_with("licensed", true, Some(&payload), "Lisensi Valid."),
             Err(LicenseError::Expired | LicenseError::LicenseExpired) => {
-                let detail = match self.verify_token_claims_only(&token) {
-                    Ok(payload) => Some(payload),
-                    Err(_) => None,
-                };
+                let detail = self.verify_token_claims_only(&token).ok();
                 self.status_with(
                     "expired",
                     false,
