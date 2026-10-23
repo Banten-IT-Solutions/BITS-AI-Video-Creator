@@ -1778,6 +1778,86 @@ mod tests {
         assert!(recovered.error.unwrap().contains("restart"));
     }
 
+    #[test]
+    fn deleting_a_workflow_with_active_runs_is_blocked() {
+        let db = Database::open_in_memory().unwrap();
+        let workflow_id = create_workflow(
+            &db,
+            vec![node("start", "trigger.manual", json!({}))],
+            vec![],
+        );
+        db.create_run(&workflow_id, "manual", &json!({}), None)
+            .unwrap();
+        let error = db.delete_workflow(&workflow_id).unwrap_err();
+        assert!(error.to_string().contains("active run"));
+        assert!(db.get_workflow(&workflow_id).is_ok());
+    }
+
+    #[test]
+    fn retry_reports_a_deleted_workflow_clearly() {
+        let db = Database::open_in_memory().unwrap();
+        let workflow_id = create_workflow(
+            &db,
+            vec![node("start", "trigger.manual", json!({}))],
+            vec![],
+        );
+        let run = db
+            .create_run(&workflow_id, "manual", &json!({"topic": "x"}), None)
+            .unwrap();
+        db.update_run_status(&run.id, RunStatus::Succeeded, None, None)
+            .unwrap();
+        db.delete_workflow(&workflow_id).unwrap();
+        let error = db.retry_run(&run.id).unwrap_err();
+        assert!(error.to_string().contains("was deleted"));
+    }
+
+    #[test]
+    fn idempotency_key_remains_reserved_after_completion() {
+        let db = Database::open_in_memory().unwrap();
+        let workflow_id = create_workflow(
+            &db,
+            vec![node("start", "trigger.manual", json!({}))],
+            vec![],
+        );
+        let run = db
+            .create_run(&workflow_id, "manual", &json!({}), Some("slot:once"))
+            .unwrap();
+        db.update_run_status(&run.id, RunStatus::Succeeded, None, None)
+            .unwrap();
+        assert!(db
+            .create_run(&workflow_id, "manual", &json!({}), Some("slot:once"))
+            .is_err());
+    }
+
+    #[test]
+    fn recovery_keeps_queued_runs_and_fails_running_runs() {
+        let db = Database::open_in_memory().unwrap();
+        let workflow_id = create_workflow(
+            &db,
+            vec![node("start", "trigger.manual", json!({}))],
+            vec![],
+        );
+        let queued = db
+            .create_run(&workflow_id, "manual", &json!({}), None)
+            .unwrap();
+        let running = db
+            .create_run(&workflow_id, "manual", &json!({}), None)
+            .unwrap();
+        db.claim_next_queued().unwrap();
+        let running_claimed = db
+            .list_runs(&Default::default())
+            .unwrap()
+            .into_iter()
+            .find(|item| item.status == "running")
+            .unwrap();
+        assert_eq!(running_claimed.id, queued.id);
+        assert_eq!(db.recover_interrupted().unwrap(), 1);
+        // The first queued run was claimed and is therefore failed; the second
+        // one is untouched and remains eligible for the worker.
+        assert_eq!(db.get_run(&running.id).unwrap().status, "queued");
+        assert_eq!(db.get_run(&running_claimed.id).unwrap().status, "failed");
+    }
+
     #[tokio::test]
     async fn executor_refuses_queued_runs_without_a_valid_license() {
         let (db, engine) = setup();

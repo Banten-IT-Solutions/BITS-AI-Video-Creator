@@ -10,7 +10,7 @@ import {
   Square,
   X,
 } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { formatDateTime, formatDuration, formatTime, relativeTime, statusTone, stringifyJson } from "../lib/format";
 import type { RunStep } from "../lib/types";
@@ -83,6 +83,9 @@ export function RunDetailDialog({
   const toast = useToast();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
+  useEffect(() => {
+    if (!open) setCopied(false);
+  }, [open, runId]);
   const detail = useQuery({
     queryKey: ["run", runId],
     queryFn: () => api.getRun(runId as string),

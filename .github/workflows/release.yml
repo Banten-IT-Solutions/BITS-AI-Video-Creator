@@ -12,10 +12,10 @@ on:
         type: string
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
-  group: release-${{ github.ref }}
+  group: release-${{ inputs.tag || github.ref_name }}
   cancel-in-progress: false
 
 env:
@@ -23,13 +23,111 @@ env:
   VERSION: ${{ inputs.tag || github.ref_name }}
 
 jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    outputs:
+      tag: ${{ steps.meta.outputs.tag }}
+      version: ${{ steps.meta.outputs.version }}
+    steps:
+      - name: Check out the requested tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.tag || github.ref }}
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Validate tag and checked-out commit
+        id: meta
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${TAG_NAME}"
+          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag '$TAG': expected vMAJOR.MINOR.PATCH." >&2
+            exit 1
+          fi
+          if ! git rev-parse --verify "refs/tags/${TAG}^{commit}" >/dev/null 2>&1; then
+            echo "Tag '$TAG' does not exist in the repository." >&2
+            exit 1
+          fi
+          TAG_COMMIT="$(git rev-list -n1 "$TAG")"
+          HEAD_COMMIT="$(git rev-parse HEAD)"
+          if [[ "$TAG_COMMIT" != "$HEAD_COMMIT" ]]; then
+            echo "Checked-out commit $HEAD_COMMIT does not match tag $TAG ($TAG_COMMIT)." >&2
+            exit 1
+          fi
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Verify source before packaging
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - name: Check out the validated tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust build artifacts
+        uses: Swatinem/rust-cache@v2
+
+      - name: Install Tauri Linux dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential curl wget file libssl-dev libgtk-3-dev \
+            libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev \
+            librsvg2-dev patchelf
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Type-check
+        run: npm run check
+
+      - name: Run frontend tests
+        run: npm test
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+      - name: Run clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+
+      - name: Run Rust tests
+        run: cargo test --workspace
+
   linux:
     name: Linux bundles
+    needs: [validate, verify]
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out the validated tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          persist-credentials: false
 
       - name: Pin license public key from BITS License Manager
         run: |
@@ -37,9 +135,9 @@ jobs:
           echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install Rust toolchain
@@ -59,6 +157,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Align release version
+        run: node scripts/set-release-version.mjs "${{ needs.validate.outputs.version }}"
+
       - name: Build Linux bundles
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -77,7 +178,7 @@ jobs:
           ls -lh release
 
       - name: Upload Linux artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bits-ai-video-creator-linux
           path: release/*
@@ -86,11 +187,15 @@ jobs:
 
   windows:
     name: Windows installer
+    needs: [validate, verify]
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out the validated tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          persist-credentials: false
 
       - name: Pin license public key from BITS License Manager
         shell: bash
@@ -99,9 +204,9 @@ jobs:
           echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Install Rust toolchain
@@ -112,6 +217,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Align release version
+        run: node scripts/set-release-version.mjs "${{ needs.validate.outputs.version }}"
 
       - name: Build NSIS installer
         env:
@@ -132,7 +240,7 @@ jobs:
           ls -lh release
 
       - name: Upload Windows artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bits-ai-video-creator-windows
           path: release/*
@@ -141,11 +249,15 @@ jobs:
 
   android:
     name: Android signed APK and AAB
+    needs: [validate, verify]
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out the validated tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          persist-credentials: false
 
       - name: Pin license public key from BITS License Manager
         run: |
@@ -153,13 +265,13 @@ jobs:
           echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
-          node-version: 22
+          node-version: 24
           cache: npm
 
       - name: Set up Java
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 21
@@ -188,6 +300,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Align release version
+        run: node scripts/set-release-version.mjs "${{ needs.validate.outputs.version }}"
 
       - name: Restore release keystore
         env:
@@ -227,7 +342,7 @@ jobs:
           ls -lh release
 
       - name: Upload Android artifacts
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: bits-ai-video-creator-android
           path: release/*
@@ -236,23 +351,29 @@ jobs:
 
   publish:
     name: Publish GitHub Release
+    needs: [validate, verify, linux, windows, android]
     runs-on: ubuntu-24.04
-    needs: [linux, windows, android]
     timeout-minutes: 20
+    permissions:
+      contents: write
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v4
+      - name: Check out the validated tag
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.validate.outputs.tag }}
+          fetch-depth: 0
+          persist-credentials: false
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           path: release
           merge-multiple: true
 
       - name: Generate updater manifest and checksums
         env:
-          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
-          VERSION: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_NAME: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
           python3 - <<'PY'
           import glob
@@ -261,7 +382,7 @@ jobs:
           import sys
           from datetime import datetime, timezone
 
-          version = os.environ["VERSION"].removeprefix("v")
+          version = os.environ["VERSION"]
           tag = os.environ["TAG_NAME"]
           base = f"https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/releases/download/{tag}"
 
@@ -298,7 +419,19 @@ jobs:
               print(f"missing updater platforms: {sorted(missing)}", file=sys.stderr)
               sys.exit(1)
 
-          notes = open("docs/RELEASE_NOTES_1.0.0.md", encoding="utf-8").read()
+          # Release notes are version-specific. Never fall back to a previous
+          # version's notes; use a short generated note when no file exists.
+          notes_candidates = (
+              f"docs/RELEASE_NOTES_{version}.md",
+              "docs/RELEASE_NOTES.md",
+          )
+          notes = next(
+              (open(path, encoding="utf-8").read() for path in notes_candidates if os.path.exists(path)),
+              f"BITS AI Video Creator {version}.\n\nSee the asset checksums and signatures attached to this release.",
+          )
+          with open("release/notes.md", "w", encoding="utf-8") as handle:
+              handle.write(notes)
+
           manifest = {
               "version": version,
               "notes": notes,
@@ -311,19 +444,36 @@ jobs:
           print(json.dumps(manifest, indent=2))
           PY
           cd release
-          sha256sum * > SHA256SUMS.txt
+          # Build the checksum list without the output file itself: shell
+          # redirection creates SHA256SUMS.txt before the glob expands, so
+          # `sha256sum *` would hash an empty file and record a wrong entry.
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' -printf '%P\n' \
+            | sort \
+            | xargs -r sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
       - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG_NAME: ${{ github.event.inputs.tag || github.ref_name }}
+          TAG_NAME: ${{ needs.validate.outputs.tag }}
+          VERSION: ${{ needs.validate.outputs.version }}
         run: |
+          set -euo pipefail
+          PRERELEASE_FLAGS=()
+          if [[ "$VERSION" == *-* ]]; then
+            PRERELEASE_FLAGS=(--prerelease --latest=false)
+          fi
+          ASSETS=(release/BITS-* release/latest.json release/SHA256SUMS.txt)
+          if compgen -G "release/*signature*.txt" >/dev/null; then
+            ASSETS+=(release/*signature*.txt)
+          fi
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release upload "$TAG_NAME" release/* --clobber
+            gh release upload "$TAG_NAME" "${ASSETS[@]}" --clobber
+            gh release edit "$TAG_NAME" --notes-file release/notes.md "${PRERELEASE_FLAGS[@]}"
           else
             gh release create "$TAG_NAME" \
               --title "BITS AI Video Creator ${TAG_NAME#v}" \
-              --notes-file docs/RELEASE_NOTES_1.0.0.md \
-              release/*
+              --notes-file release/notes.md \
+              "${PRERELEASE_FLAGS[@]}" \
+              "${ASSETS[@]}"
           fi

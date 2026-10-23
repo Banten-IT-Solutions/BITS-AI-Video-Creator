@@ -37,6 +37,7 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<ProviderViewInfo | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   const measure = useCallback((): Bounds | null => {
     const element = containerRef.current;
@@ -79,7 +80,7 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
       cancelAnimationFrame(frame);
       void api.closeProviderView().catch(() => undefined);
     };
-  }, [account.id, tool.id, measure]);
+  }, [account.id, tool.id, measure, attempt]);
 
   useEffect(() => {
     if (!info) return;
@@ -141,6 +142,19 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
               <AlertTriangle size={20} className="mx-auto text-danger" />
               <p className="mt-3 text-sm font-medium text-fg">Tool unavailable</p>
               <p className="mt-1 text-xs leading-5 text-muted">{error}</p>
+              <Button
+                className="mt-4"
+                size="sm"
+                variant="secondary"
+                icon={<RefreshCw size={12} />}
+                onClick={() => {
+                  setError(null);
+                  setBusy(true);
+                  setAttempt((value) => value + 1);
+                }}
+              >
+                Retry
+              </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 text-xs text-muted">

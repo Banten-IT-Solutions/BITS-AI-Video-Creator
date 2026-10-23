@@ -20,7 +20,7 @@ import {
   Workflow as WorkflowIcon,
   X,
 } from "lucide-react";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import { formatNumber, relativeTime } from "../lib/format";
 import { navigate, type Page, type Route } from "../lib/router";
@@ -88,10 +88,14 @@ type StorageState = UseQueryResult<StorageInfo>;
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {
   const queryClient = useQueryClient();
   const [navOpen, setNavOpen] = useState(false);
+  const drawerRef = useRef<HTMLElement>(null);
   const dashboard = useQuery({
     queryKey: ["dashboard"],
     queryFn: api.getDashboard,
-    refetchInterval: 6_000,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data && data.queuedRuns + data.runningRuns > 0 ? 4_000 : 30_000;
+    },
   });
   const storage = useQuery({ queryKey: ["storage"], queryFn: api.getStorageInfo, staleTime: 60_000 });
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
@@ -104,6 +108,49 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
   useEffect(() => {
     setNavOpen(false);
   }, [routeKey]);
+
+  useEffect(() => {
+    if (!navOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    const overflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const timer = window.setTimeout(() => {
+      drawerRef.current
+        ?.querySelector<HTMLElement>(
+          "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        )
+        ?.focus();
+    }, 20);
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setNavOpen(false);
+        return;
+      }
+      if (event.key !== "Tab" || !drawerRef.current) return;
+      const nodes = Array.from(
+        drawerRef.current.querySelectorAll<HTMLElement>(
+          "a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex='-1'])",
+        ),
+      ).filter((node) => node.offsetParent !== null);
+      if (nodes.length === 0) return;
+      const first = nodes[0];
+      const last = nodes[nodes.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = overflow;
+      previous?.focus?.();
+    };
+  }, [navOpen]);
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -127,6 +174,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             aria-hidden="true"
           />
           <aside
+            ref={drawerRef}
             className="absolute inset-y-0 left-0 flex w-[86%] max-w-[324px] flex-col border-r border-line/80 bg-surface shadow-2xl"
             role="dialog"
             aria-modal="true"

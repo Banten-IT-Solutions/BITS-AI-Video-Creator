@@ -1,8 +1,10 @@
 import clsx from "clsx";
 import { X } from "lucide-react";
 import {
+  cloneElement,
   createContext,
   forwardRef,
+  isValidElement,
   useContext,
   useEffect,
   useId,
@@ -10,6 +12,7 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type InputHTMLAttributes,
+  type ReactElement,
   type ReactNode,
   type SelectHTMLAttributes,
   type TextareaHTMLAttributes,
@@ -247,16 +250,48 @@ export function Field({
   className?: string;
   optional?: boolean;
 }) {
+  const generatedId = useId();
+  const childId = isValidElement(children)
+    ? (children.props as { id?: string }).id
+    : undefined;
+  const fieldId = htmlFor ?? childId ?? `field-${generatedId}`;
+  const messageId = `${fieldId}-message`;
+  const message = error ?? hint;
+
+  const control =
+    isValidElement(children) && !childId
+      ? cloneElement(
+          children as ReactElement<{
+            id?: string;
+            "aria-describedby"?: string;
+            "aria-invalid"?: boolean;
+          }>,
+          {
+            id: fieldId,
+            "aria-describedby": message ? messageId : undefined,
+            "aria-invalid": error ? true : undefined,
+          },
+        )
+      : children;
+
   return (
     <div className={cn("space-y-1.5", className)}>
       <div className="flex items-baseline justify-between gap-2">
-        <label htmlFor={htmlFor} className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
+        <label htmlFor={fieldId} className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
           {label}
         </label>
         {optional ? <span className="text-[10px] text-faint">optional</span> : null}
       </div>
-      {children}
-      {error ? <p className="text-xs leading-5 text-danger">{error}</p> : hint ? <p className="text-[11px] leading-[18px] text-faint">{hint}</p> : null}
+      {control}
+      {error ? (
+        <p id={messageId} className="text-xs leading-5 text-danger">
+          {error}
+        </p>
+      ) : hint ? (
+        <p id={messageId} className="text-[11px] leading-[18px] text-faint">
+          {hint}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -75,6 +75,51 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
   }
 }
 
+/**
+ * Raw shape returned by the Rust `LicenseStatus` struct.
+ *
+ * Keep this in sync with `crates/bits-ai-video-creator-core/src/models.rs`.
+ * The UI contract (`LicenseState`) is intentionally narrower and uses
+ * `status`/`error`; this adapter is the single place where the two meet.
+ */
+export interface BackendLicenseStatus {
+  mode: string;
+  state: "licensed" | "unlinked" | "expired" | "error";
+  licensed: boolean;
+  plan: string | null;
+  licenseId: string | null;
+  subject: string | null;
+  kid: string | null;
+  issuedAt: number | null;
+  expiresAt: number | null;
+  licenseExpiresAt: number | null;
+  daysRemaining: number | null;
+  entitlements: string[];
+  deviceId: string;
+  lastSyncedAt: string | null;
+  message: string;
+}
+
+function toIsoTimestamp(value: number | null): string | null {
+  return value === null ? null : new Date(value * 1_000).toISOString();
+}
+
+export function mapLicenseStatus(raw: BackendLicenseStatus): LicenseState {
+  return {
+    status: raw.state,
+    plan: raw.plan,
+    licenseId: raw.licenseId,
+    expiresAt: toIsoTimestamp(raw.expiresAt),
+    licenseExpiresAt: toIsoTimestamp(raw.licenseExpiresAt),
+    entitlements: raw.entitlements,
+    deviceId: raw.deviceId,
+    lastSyncedAt: raw.lastSyncedAt,
+    // `message` is informational for licensed/unlinked/expired states. Only
+    // surface it as an error when the backend explicitly reports one.
+    error: raw.state === "error" ? raw.message : null,
+  };
+}
+
 export const api = {
   getProviders: () => call<ProviderInfo[]>("get_providers"),
   getProviderTools: () => call<ProviderTool[]>("get_provider_tools"),
@@ -139,10 +184,12 @@ export const api = {
   generateWorkflowDraft: (description: string) =>
     call<WorkflowDraft>("generate_workflow_draft", { description }),
 
-  getLicenseState: () => call<LicenseState>("license_state"),
-  linkLicenseCode: (code: string) => call<LicenseState>("license_link_code", { code }),
-  refreshLicense: () => call<LicenseState>("license_refresh"),
-  unlinkLicense: () => call<LicenseState>("license_unlink"),
+  getLicenseState: () =>
+    call<BackendLicenseStatus>("license_state").then(mapLicenseStatus),
+  linkLicenseCode: (code: string) =>
+    call<BackendLicenseStatus>("license_link_code", { code }).then(mapLicenseStatus),
+  refreshLicense: () => call<BackendLicenseStatus>("license_refresh").then(mapLicenseStatus),
+  unlinkLicense: () => call<BackendLicenseStatus>("license_unlink").then(mapLicenseStatus),
 
   listStoryboards: () => call<StoryboardSummary[]>("list_storyboards"),
   getStoryboard: (id: string) => call<Storyboard>("get_storyboard", { id }),

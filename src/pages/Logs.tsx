@@ -123,7 +123,7 @@ export function LogsPage() {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       }),
-    refetchInterval: 5_000,
+    refetchInterval: 15_000,
   });
 
   const clear = useMutation({

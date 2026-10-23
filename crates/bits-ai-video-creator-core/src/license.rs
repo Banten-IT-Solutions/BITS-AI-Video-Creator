@@ -36,6 +36,9 @@ pub const LICENSE_DEVICE_TOKEN_META: &str = "license.device_token";
 /// Server-side id of the device token, used to revoke the pairing.
 pub const LICENSE_DEVICE_TOKEN_ID_META: &str = "license.device_token_id";
 pub const LICENSE_SYNCED_META: &str = "license.synced_at";
+/// Highest Unix timestamp observed by the license manager. Used to detect a
+/// system clock that has been moved backwards to extend an expired token.
+pub const LICENSE_CLOCK_META: &str = "license.clock_last_seen";
 pub const MAX_LICENSE_TOKEN_BYTES: usize = 16 * 1024;
 pub const TOKEN_VERSION: i64 = 2;
 pub const PRODUCT_CODE: &str = "bits-ai-video-creator";
@@ -44,6 +47,8 @@ pub const DEFAULT_LM_API_URL: &str = "https://license.bits.co.id";
 const REFRESH_MARGIN_SECS: i64 = 7 * 86_400;
 /// Clock-skew allowance applied to `issued_at`.
 const ISSUED_AT_LEEWAY_SECS: i64 = 300;
+/// Tolerate small NTP corrections before treating a backwards clock as tampering.
+const CLOCK_ROLLBACK_TOLERANCE_SECS: i64 = 86_400;
 
 #[derive(Debug, Error)]
 pub enum LicenseError {
@@ -248,6 +253,27 @@ impl LicenseManager {
         &self.device_id
     }
 
+    /// Returns the last-seen timestamp when the system clock moved backwards
+    /// beyond the tolerance. Also advances the watermark as time moves forward.
+    fn detect_clock_rollback(&self) -> Option<i64> {
+        let last_seen = self
+            .db
+            .get_meta(LICENSE_CLOCK_META)
+            .ok()
+            .flatten()
+            .and_then(|value| value.parse::<i64>().ok())
+            .unwrap_or(0);
+        let now = now_ts();
+        if last_seen > 0 && now + CLOCK_ROLLBACK_TOLERANCE_SECS < last_seen {
+            return Some(last_seen);
+        }
+        // Throttle writes: status() is called for every gated operation.
+        if now > last_seen + 300 {
+            let _ = self.db.set_meta(LICENSE_CLOCK_META, &now.to_string());
+        }
+        None
+    }
+
     pub fn status(&self) -> LicenseStatus {
         if self.open_mode {
             return self.status_with(
@@ -263,6 +289,16 @@ impl LicenseManager {
                 false,
                 None,
                 &format!("Kunci Publik Lisensi Tidak Valid: {error}"),
+            );
+        }
+        if let Some(last_seen) = self.detect_clock_rollback() {
+            return self.status_with(
+                "error",
+                false,
+                None,
+                &format!(
+                    "Waktu Sistem Tidak Valid: Jam Sistem Bergerak Mundur (terakhir terlihat {last_seen}). Aktifkan sinkronisasi waktu otomatis lalu coba lagi."
+                ),
             );
         }
         let linked = self
@@ -695,6 +731,44 @@ mod tests {
         assert_eq!(status.plan.as_deref(), Some("aivideo_lifetime"));
         assert_eq!(status.entitlements.len(), 6);
         assert!(manager.require().is_ok());
+    }
+
+    #[test]
+    fn clock_rollback_is_rejected() {
+        let manager = fixture_manager();
+        manager.activate(&sign_payload(&fixture_payload())).unwrap();
+        manager
+            .db
+            .set_meta(LICENSE_CLOCK_META, &(now_ts() + 30 * 86_400).to_string())
+            .unwrap();
+        let status = manager.status();
+        assert_eq!(status.state, "error");
+        assert!(!status.licensed);
+        assert!(status.message.contains("Jam Sistem Bergerak Mundur"));
+    }
+
+    #[test]
+    fn license_status_serializes_the_frontend_contract() {
+        // The UI adapter in `src/lib/api.ts` maps these exact keys. A rename
+        // here must be reflected there and in `BackendLicenseStatus`.
+        let manager = fixture_manager();
+        manager.activate(&sign_payload(&fixture_payload())).unwrap();
+        let value = serde_json::to_value(manager.status()).unwrap();
+        let object = value.as_object().unwrap();
+
+        assert_eq!(
+            object.get("state").and_then(|item| item.as_str()),
+            Some("licensed")
+        );
+        assert_eq!(
+            object.get("licensed").and_then(|item| item.as_bool()),
+            Some(true)
+        );
+        assert!(object.get("message").is_some());
+        assert!(object.get("entitlements").unwrap().is_array());
+        assert!(object.get("expiresAt").unwrap().is_i64());
+        assert!(!object.contains_key("status"));
+        assert!(!object.contains_key("error"));
     }
 
     #[test]

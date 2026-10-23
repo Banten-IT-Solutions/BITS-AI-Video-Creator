@@ -11,6 +11,7 @@ const MIGRATIONS: &[&str] = &[
     include_str!("../migrations/001_initial.sql"),
     include_str!("../migrations/002_product_features.sql"),
     include_str!("../migrations/003_studio.sql"),
+    include_str!("../migrations/004_permanent_idempotency.sql"),
 ];
 
 pub fn latest_schema_version() -> i64 {
@@ -59,6 +60,12 @@ impl Database {
     pub fn migrate(&self) -> Result<()> {
         let mut conn = self.lock()?;
         let current: i64 = conn.query_row("PRAGMA user_version", [], |row| row.get(0))?;
+        let latest = MIGRATIONS.len() as i64;
+        if current > latest {
+            return Err(CoreError::validation(format!(
+                "Database schema version {current} is newer than this build supports ({latest}). Install the latest BITS AI Video Creator before opening this database."
+            )));
+        }
         for (index, sql) in MIGRATIONS.iter().enumerate() {
             let version = (index + 1) as i64;
             if version <= current {
@@ -486,6 +493,16 @@ impl Database {
 
     pub fn delete_workflow(&self, id: &str) -> Result<()> {
         let conn = self.lock()?;
+        let active: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM runs WHERE workflow_id = ?1 AND status IN ('queued','running')",
+            params![id],
+            |row| row.get(0),
+        )?;
+        if active > 0 {
+            return Err(CoreError::conflict(format!(
+                "This workflow has {active} active run(s). Cancel or wait for them to finish before deleting it."
+            )));
+        }
         let changed = conn.execute("DELETE FROM workflows WHERE id = ?1", params![id])?;
         if changed == 0 {
             return Err(CoreError::not_found("Workflow not found"));
@@ -633,16 +650,16 @@ impl Database {
         let now = now_rfc3339();
         let conn = self.lock()?;
         if let Some(key) = idempotency_key {
-            let active: Option<String> = conn
+            let existing: Option<String> = conn
                 .query_row(
-                    "SELECT id FROM runs WHERE idempotency_key = ?1 AND status IN ('queued','running')",
+                    "SELECT id FROM runs WHERE idempotency_key = ?1 LIMIT 1",
                     params![key],
                     |row| row.get(0),
                 )
                 .optional()?;
-            if let Some(existing) = active {
+            if let Some(existing) = existing {
                 return Err(CoreError::conflict(format!(
-                    "An active run already uses this idempotency key ({existing})"
+                    "A run already uses this idempotency key ({existing})"
                 )));
             }
         }
@@ -878,10 +895,8 @@ impl Database {
             "UPDATE runs SET status='failed', error='Interrupted by application restart', finished_at=?1 WHERE status='running'",
             params![now],
         )?;
-        tx.execute(
-            "UPDATE runs SET status='failed', error='Not started before application restart', finished_at=?1 WHERE status='queued'",
-            params![now],
-        )?;
+        // Queued runs have not started yet, so they are safe to resume. The
+        // scheduler/worker loops will claim them in order after startup.
         tx.execute(
             "UPDATE run_steps SET status='failed', error='Interrupted by application restart', finished_at=?1 WHERE status='running'",
             params![now],
@@ -896,6 +911,19 @@ impl Database {
             return Err(CoreError::conflict(
                 "Stop the active run before retrying it",
             ));
+        }
+        if let Err(error) = self.get_workflow(&run.workflow_id) {
+            let missing = matches!(
+                &error,
+                CoreError::NotFound(_) | CoreError::Database(rusqlite::Error::QueryReturnedNoRows)
+            );
+            if missing {
+                return Err(CoreError::not_found(format!(
+                    "The workflow for run {} was deleted. Duplicate its input into a new workflow before retrying.",
+                    run.id
+                )));
+            }
+            return Err(error);
         }
         self.create_run(&run.workflow_id, "retry", &run.input, None)
     }

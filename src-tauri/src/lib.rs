@@ -149,6 +149,44 @@ fn log(state: &AppState, level: &str, scope: &str, message: &str) {
     let _ = state.db.insert_log(level, scope, None, message, None);
 }
 
+/// Run filesystem/SQLite-heavy work off the UI thread. Import/export and
+/// backups can take seconds on large libraries; a synchronous Tauri command
+/// would freeze the window.
+async fn run_blocking<T, F>(task: F) -> CoreResult<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> CoreResult<T> + Send + 'static,
+{
+    tauri::async_runtime::spawn_blocking(task)
+        .await
+        .map_err(|error| CoreError::internal(format!("Background task failed: {error}")))?
+}
+
+#[cfg(unix)]
+fn restrict_path_permissions(path: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(metadata) = std::fs::metadata(path) {
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(mode);
+        let _ = std::fs::set_permissions(path, permissions);
+    }
+}
+
+#[cfg(not(unix))]
+fn restrict_path_permissions(_path: &Path, _mode: u32) {}
+
+/// Require a valid license that also carries the given feature entitlement.
+/// Open-mode development builds satisfy every entitlement.
+fn require_entitlement(state: &AppState, code: &str) -> CoreResult<()> {
+    state.license.require()?;
+    if !state.license.has_entitlement(code) {
+        return Err(CoreError::validation(format!(
+            "Lisensi ini tidak mencakup fitur '{code}'. Perbarui lisensi Anda untuk melanjutkan."
+        )));
+    }
+    Ok(())
+}
+
 // ---------- Read-only app data ----------
 
 #[tauri::command]
@@ -334,6 +372,7 @@ fn open_provider_view(
     account_id: String,
     bounds: webview_manager::Bounds,
 ) -> Result<webview_manager::ProviderViewInfo, String> {
+    require_entitlement(&state, "provider-workspaces").map_err(|error| error.to_string())?;
     webview_manager::open(&app, &state.db, &state.data_dir, &account_id, bounds)
 }
 
@@ -357,6 +396,7 @@ fn open_provider_tool(
     tool_id: String,
     bounds: webview_manager::Bounds,
 ) -> Result<webview_manager::ProviderViewInfo, String> {
+    require_entitlement(&state, "provider-workspaces").map_err(|error| error.to_string())?;
     webview_manager::open_tool(
         &app,
         &state.db,
@@ -444,6 +484,7 @@ fn get_workflow(state: State<'_, AppState>, id: String) -> CoreResult<Workflow> 
 
 #[tauri::command]
 fn create_workflow(state: State<'_, AppState>, input: WorkflowInput) -> CoreResult<Workflow> {
+    require_entitlement(&state, "automation")?;
     let workflow = state.db.create_workflow(&input)?;
     log(
         &state,
@@ -460,6 +501,7 @@ fn update_workflow(
     id: String,
     input: WorkflowInput,
 ) -> CoreResult<Workflow> {
+    require_entitlement(&state, "automation")?;
     let workflow = state.db.update_workflow(&id, &input)?;
     log(
         &state,
@@ -475,6 +517,7 @@ fn update_workflow(
 
 #[tauri::command]
 fn duplicate_workflow(state: State<'_, AppState>, id: String) -> CoreResult<Workflow> {
+    require_entitlement(&state, "automation")?;
     let workflow = state.db.duplicate_workflow(&id)?;
     log(
         &state,
@@ -491,6 +534,7 @@ fn delete_workflow(
     id: String,
     confirm_name: String,
 ) -> CoreResult<DeleteResult> {
+    require_entitlement(&state, "automation")?;
     let workflow = state.db.get_workflow(&id)?;
     if !workflow
         .name
@@ -516,6 +560,7 @@ fn delete_workflow(
 
 #[tauri::command]
 fn set_workflow_enabled(state: State<'_, AppState>, id: String, enabled: bool) -> CoreResult<()> {
+    require_entitlement(&state, "automation")?;
     state.db.set_workflow_enabled(&id, enabled)
 }
 
@@ -538,7 +583,7 @@ fn run_workflow(
     input: Option<Value>,
     idempotency_key: Option<String>,
 ) -> CoreResult<Run> {
-    state.license.require()?;
+    require_entitlement(&state, "automation")?;
     let input = input.unwrap_or_else(|| json!({}));
     if serde_json::to_vec(&input)?.len() > 262_144 {
         return Err(CoreError::validation("Run input is limited to 256 KB"));
@@ -568,7 +613,7 @@ fn cancel_run(state: State<'_, AppState>, id: String) -> CoreResult<bool> {
 
 #[tauri::command]
 fn retry_run(state: State<'_, AppState>, id: String) -> CoreResult<Run> {
-    state.license.require()?;
+    require_entitlement(&state, "automation")?;
     let run = state.db.retry_run(&id)?;
     state.executor.wake();
     Ok(run)
@@ -675,7 +720,7 @@ async fn generate_workflow_draft(
     state: State<'_, AppState>,
     description: String,
 ) -> CoreResult<WorkflowDraft> {
-    state.license.require()?;
+    require_entitlement(&state, "automation")?;
     let settings = state.db.get_settings()?;
     let api_key = state
         .secrets
@@ -750,7 +795,7 @@ fn get_storyboard(state: State<'_, AppState>, id: String) -> CoreResult<Storyboa
 
 #[tauri::command]
 fn create_storyboard(state: State<'_, AppState>, input: StoryboardInput) -> CoreResult<Storyboard> {
-    state.license.require()?;
+    require_entitlement(&state, "storyboard")?;
     let storyboard = state.db.create_storyboard(&input)?;
     log(
         &state,
@@ -767,7 +812,7 @@ fn update_storyboard(
     id: String,
     input: StoryboardInput,
 ) -> CoreResult<Storyboard> {
-    state.license.require()?;
+    require_entitlement(&state, "storyboard")?;
     let storyboard = state.db.update_storyboard(&id, &input)?;
     log(
         &state,
@@ -780,7 +825,7 @@ fn update_storyboard(
 
 #[tauri::command]
 fn delete_storyboard(state: State<'_, AppState>, id: String) -> CoreResult<()> {
-    state.license.require()?;
+    require_entitlement(&state, "storyboard")?;
     state.db.delete_storyboard(&id)?;
     log(&state, "info", "storyboard", "Deleted a storyboard");
     Ok(())
@@ -788,7 +833,7 @@ fn delete_storyboard(state: State<'_, AppState>, id: String) -> CoreResult<()> {
 
 #[tauri::command]
 fn duplicate_storyboard(state: State<'_, AppState>, id: String) -> CoreResult<Storyboard> {
-    state.license.require()?;
+    require_entitlement(&state, "storyboard")?;
     let storyboard = state.db.duplicate_storyboard(&id)?;
     log(
         &state,
@@ -806,7 +851,7 @@ fn export_storyboard(
     path: String,
     format: String,
 ) -> CoreResult<u64> {
-    state.license.require()?;
+    require_entitlement(&state, "storyboard")?;
     let storyboard = state.db.get_storyboard(&id)?;
     let format = format.trim().to_ascii_lowercase();
     let (content, expected_extension) = match format.as_str() {
@@ -865,7 +910,7 @@ async fn synthesize_voiceover(
     storyboard_id: Option<String>,
     scene_id: Option<String>,
 ) -> CoreResult<VoiceoverAsset> {
-    state.license.require()?;
+    require_entitlement(&state, "voiceover")?;
     let settings = state.db.get_settings()?;
     let api_key = state
         .secrets
@@ -1048,6 +1093,7 @@ async fn check_for_updates(
     app: AppHandle,
     state: State<'_, AppState>,
 ) -> CoreResult<Option<updater::UpdateInfo>> {
+    require_entitlement(&state, "updates")?;
     updater::check(&app, state.inner()).await
 }
 
@@ -1065,6 +1111,7 @@ async fn check_for_updates(
 #[cfg(not(target_os = "android"))]
 #[tauri::command]
 async fn install_update(app: AppHandle, state: State<'_, AppState>) -> CoreResult<()> {
+    require_entitlement(&state, "updates")?;
     updater::install(&app, state.inner()).await
 }
 
@@ -1079,23 +1126,31 @@ async fn install_update(_app: AppHandle, _state: State<'_, AppState>) -> CoreRes
 // ---------- Import / export / backup ----------
 
 #[tauri::command]
-fn import_preview(
+async fn import_preview(
     state: State<'_, AppState>,
     path: String,
     strategy: DuplicateStrategy,
 ) -> CoreResult<ImportPreview> {
-    let parsed = import_export::read_import_file(Path::new(&path))?;
-    import_export::preview_import(&state.db, &parsed, strategy)
+    let db = state.db.clone();
+    run_blocking(move || {
+        let parsed = import_export::read_import_file(Path::new(&path))?;
+        import_export::preview_import(&db, &parsed, strategy)
+    })
+    .await
 }
 
 #[tauri::command]
-fn import_apply(
+async fn import_apply(
     state: State<'_, AppState>,
     path: String,
     strategy: DuplicateStrategy,
 ) -> CoreResult<ImportResult> {
-    let parsed = import_export::read_import_file(Path::new(&path))?;
-    let result = import_export::apply_import(&state.db, &parsed, strategy)?;
+    let db = state.db.clone();
+    let result = run_blocking(move || {
+        let parsed = import_export::read_import_file(Path::new(&path))?;
+        import_export::apply_import(&db, &parsed, strategy)
+    })
+    .await?;
     log(
         &state,
         "info",
@@ -1116,20 +1171,27 @@ fn import_apply(
 }
 
 #[tauri::command]
-fn export_data(state: State<'_, AppState>, path: String) -> CoreResult<u64> {
-    let bytes = import_export::export_to_path(&state.db, &state.app_version, Path::new(&path))?;
+async fn export_data(state: State<'_, AppState>, path: String) -> CoreResult<u64> {
+    let db = state.db.clone();
+    let app_version = state.app_version.clone();
+    let display_path = path.clone();
+    let bytes =
+        run_blocking(move || import_export::export_to_path(&db, &app_version, Path::new(&path)))
+            .await?;
     log(
         &state,
         "info",
         "export",
-        &format!("Exported data to {path}"),
+        &format!("Exported data to {display_path}"),
     );
     Ok(bytes)
 }
 
 #[tauri::command]
-fn create_backup(state: State<'_, AppState>) -> CoreResult<BackupInfo> {
-    let info = import_export::create_backup(&state.db, &state.data_dir.join("backups"))?;
+async fn create_backup(state: State<'_, AppState>) -> CoreResult<BackupInfo> {
+    let db = state.db.clone();
+    let backup_dir = state.data_dir.join("backups");
+    let info = run_blocking(move || import_export::create_backup(&db, &backup_dir)).await?;
     log(
         &state,
         "info",
@@ -1140,18 +1202,21 @@ fn create_backup(state: State<'_, AppState>) -> CoreResult<BackupInfo> {
 }
 
 #[tauri::command]
-fn list_backups(state: State<'_, AppState>) -> CoreResult<Vec<BackupInfo>> {
-    import_export::list_backups(&state.data_dir.join("backups"))
+async fn list_backups(state: State<'_, AppState>) -> CoreResult<Vec<BackupInfo>> {
+    let backup_dir = state.data_dir.join("backups");
+    run_blocking(move || import_export::list_backups(&backup_dir)).await
 }
 
 #[tauri::command]
-fn verify_backup(path: String) -> CoreResult<String> {
-    import_export::verify_sqlite_database(Path::new(&path))
+async fn verify_backup(path: String) -> CoreResult<String> {
+    run_blocking(move || import_export::verify_sqlite_database(Path::new(&path))).await
 }
 
 #[tauri::command]
-fn stage_restore(state: State<'_, AppState>, path: String) -> CoreResult<String> {
-    let staged = import_export::stage_restore(Path::new(&path), &state.data_dir)?;
+async fn stage_restore(state: State<'_, AppState>, path: String) -> CoreResult<String> {
+    let data_dir = state.data_dir.clone();
+    let staged =
+        run_blocking(move || import_export::stage_restore(Path::new(&path), &data_dir)).await?;
     log(
         &state,
         "warn",
@@ -1185,6 +1250,7 @@ pub fn run() {
         .setup(|app| {
             let data_dir = app.path().app_local_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
+            restrict_path_permissions(&data_dir, 0o700);
             let db_path = data_dir.join("bits-ai-video-creator.db");
 
             let mut restore_message: Option<String> = None;
@@ -1205,6 +1271,7 @@ pub fn run() {
             }
 
             let db = Database::open(&db_path)?;
+            restrict_path_permissions(&db_path, 0o600);
             let recovered = db.recover_interrupted()?;
             let settings = db.get_settings()?;
             let _ = db.cleanup_logs(settings.log_retention_days, settings.max_log_rows);
@@ -1311,6 +1378,62 @@ pub fn run() {
                         Err(error) => ("warn", error.to_string()),
                     };
                     let _ = db.insert_log(level, "license", None, &message, None);
+                });
+            }
+            {
+                // Periodic refresh keeps a long-running desktop session from
+                // drifting past token expiry. Also re-evaluates entitlements so
+                // the Local API stops when a license loses that feature.
+                let license = state.license.clone();
+                let db = state.db.clone();
+                let local_api = state.local_api.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut interval = tokio::time::interval(Duration::from_secs(6 * 60 * 60));
+                    interval.tick().await;
+                    loop {
+                        interval.tick().await;
+                        match license.ensure_fresh().await {
+                            Ok(status) => {
+                                if let Ok(settings) = db.get_settings() {
+                                    local_api.reconfigure(&settings);
+                                }
+                                if status.state != "licensed" {
+                                    let _ = db.insert_log(
+                                        "warn",
+                                        "license",
+                                        None,
+                                        &status.message,
+                                        None,
+                                    );
+                                }
+                            }
+                            Err(error) => {
+                                let _ = db.insert_log(
+                                    "warn",
+                                    "license",
+                                    None,
+                                    &error.to_string(),
+                                    None,
+                                );
+                            }
+                        }
+                    }
+                });
+            }
+            {
+                // Log retention must also run during long sessions, not only
+                // at startup.
+                let db = state.db.clone();
+                tauri::async_runtime::spawn(async move {
+                    let mut interval = tokio::time::interval(Duration::from_secs(6 * 60 * 60));
+                    interval.tick().await;
+                    loop {
+                        interval.tick().await;
+                        if let Ok(settings) = db.get_settings() {
+                            let _ =
+                                db.cleanup_logs(settings.log_retention_days, settings.max_log_rows);
+                        }
+                    }
                 });
             }
             Ok(())

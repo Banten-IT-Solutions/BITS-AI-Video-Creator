@@ -116,6 +116,7 @@ export function App() {
     queryKey: ["license"],
     queryFn: api.getLicenseState,
     staleTime: 15_000,
+    refetchInterval: 5 * 60_000,
     retry: 1,
   });
   useTheme(settings.data?.theme);

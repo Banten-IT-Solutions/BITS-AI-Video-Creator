@@ -13,12 +13,12 @@ tokio.workspace = true
 thiserror.workspace = true
 async-trait = "0.1"
 base64 = "0.23"
-chrono-tz = { version = "0.9", features = ["serde"] }
+chrono-tz = { version = "0.10", features = ["serde"] }
 ring = "0.17"
-cron = "0.12"
+cron = "0.17"
 regex = "1"
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "charset", "http2", "stream"] }
-rusqlite = { version = "0.32", features = ["bundled"] }
+reqwest = { version = "0.13", features = ["json", "charset", "http2", "stream"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 tokio-util = { version = "0.7", features = ["rt"] }
 url = "2"
 zeroize = "1"

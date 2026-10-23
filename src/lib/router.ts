@@ -49,13 +49,15 @@ export function parseHash(hash: string): Route {
 }
 
 export function navigate(path: string): void {
-  if (beforeNavigate && !beforeNavigate()) return;
   const normalized = path.startsWith("/") ? path : `/${path}`;
   if (window.location.hash === `#${normalized}`) return;
+  if (beforeNavigate && !beforeNavigate()) return;
+  allowNextHashChange = true;
   window.location.hash = normalized;
 }
 
 let beforeNavigate: (() => boolean) | null = null;
+let allowNextHashChange = false;
 
 /** Registers a guard used by in-app navigation (for example, unsaved editor changes). */
 export function setBeforeNavigate(guard: (() => boolean) | null): void {
@@ -65,7 +67,20 @@ export function setBeforeNavigate(guard: (() => boolean) | null): void {
 export function useRoute(): Route {
   const [route, setRoute] = useState<Route>(() => parseHash(window.location.hash));
   useEffect(() => {
-    const onChange = () => setRoute(parseHash(window.location.hash));
+    let currentHash = window.location.hash;
+    const onChange = () => {
+      const nextHash = window.location.hash;
+      if (allowNextHashChange) {
+        allowNextHashChange = false;
+      } else if (beforeNavigate && !beforeNavigate()) {
+        // Back/forward or a manual hash edit bypassed navigate(). Restore the
+        // previous URL without adding another history entry.
+        window.history.replaceState(null, "", currentHash || "#/");
+        return;
+      }
+      currentHash = nextHash;
+      setRoute(parseHash(nextHash));
+    };
     window.addEventListener("hashchange", onChange);
     return () => window.removeEventListener("hashchange", onChange);
   }, []);

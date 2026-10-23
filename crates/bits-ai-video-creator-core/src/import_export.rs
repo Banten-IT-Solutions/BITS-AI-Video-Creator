@@ -13,6 +13,19 @@ use std::collections::HashSet;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+#[cfg(unix)]
+fn restrict_permissions(path: &Path, mode: u32) {
+    use std::os::unix::fs::PermissionsExt;
+    if let Ok(metadata) = std::fs::metadata(path) {
+        let mut permissions = metadata.permissions();
+        permissions.set_mode(mode);
+        let _ = std::fs::set_permissions(path, permissions);
+    }
+}
+
+#[cfg(not(unix))]
+fn restrict_permissions(_path: &Path, _mode: u32) {}
+
 pub const EXPORT_SCHEMA_VERSION: u32 = 1;
 pub const EXPORT_KIND: &str = "bits-ai-video-creator.export";
 pub const MAX_IMPORT_BYTES: u64 = 20 * 1024 * 1024;
@@ -328,6 +341,7 @@ pub fn create_backup(db: &Database, backup_dir: &Path) -> Result<BackupInfo> {
         return Err(CoreError::validation("Backup location must be a directory"));
     }
     std::fs::create_dir_all(backup_dir)?;
+    restrict_permissions(backup_dir, 0o700);
     let stamp = Utc::now().format("%Y%m%d-%H%M%S").to_string();
     let mut path = backup_dir.join(format!("bits-ai-video-creator-backup-{stamp}.db"));
     let mut attempt = 1;
@@ -341,6 +355,7 @@ pub fn create_backup(db: &Database, backup_dir: &Path) -> Result<BackupInfo> {
         }
     }
     let bytes = db.backup_to(&path)?;
+    restrict_permissions(&path, 0o600);
     let integrity = verify_sqlite_database(&path)?;
     Ok(BackupInfo {
         path: path.to_string_lossy().to_string(),
@@ -451,6 +466,7 @@ pub fn stage_restore(source: &Path, data_dir: &Path) -> Result<PathBuf> {
         return Err(CoreError::validation("Select a different database file"));
     }
     std::fs::copy(source, &staged)?;
+    restrict_permissions(&staged, 0o600);
     verify_sqlite_database(&staged)?;
     Ok(staged)
 }
@@ -502,6 +518,7 @@ fn write_atomic(path: &Path, bytes: &[u8]) -> Result<()> {
         // `fs::rename` replaces an existing destination on Unix and Windows;
         // do not delete the previous export first.
         std::fs::rename(&temp, path)?;
+        restrict_permissions(path, 0o600);
         Ok(())
     })();
     if result.is_err() {

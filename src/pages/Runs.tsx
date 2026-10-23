@@ -39,7 +39,14 @@ export function RunsPage() {
   const [page, setPage] = useState(0);
   const [runId, setRunId] = useState<string | null>(null);
 
-  const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: api.getDashboard, refetchInterval: 6_000 });
+  const dashboard = useQuery({
+    queryKey: ["dashboard"],
+    queryFn: api.getDashboard,
+    refetchInterval: (query) => {
+      const data = query.state.data;
+      return data && data.queuedRuns + data.runningRuns > 0 ? 4_000 : 30_000;
+    },
+  });
   const workflows = useQuery({ queryKey: ["workflows"], queryFn: api.listWorkflows });
   const runs = useQuery({
     queryKey: ["runs", status, workflowId, page],
@@ -50,7 +57,12 @@ export function RunsPage() {
         limit: PAGE_SIZE,
         offset: page * PAGE_SIZE,
       }),
-    refetchInterval: 4_000,
+    refetchInterval: (query) => {
+      const rows = query.state.data;
+      return rows?.some((run) => run.status === "queued" || run.status === "running")
+        ? 4_000
+        : 30_000;
+    },
   });
 
   const cancel = useMutation({

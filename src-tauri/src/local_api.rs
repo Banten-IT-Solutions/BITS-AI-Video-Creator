@@ -104,6 +104,13 @@ impl LocalApi {
             self.set_error(error.to_string());
             return;
         }
+        if !self.inner.license.has_entitlement("local-api") {
+            self.set_error(
+                "Lisensi ini tidak mencakup fitur 'local-api'. Perbarui lisensi Anda untuk mengaktifkan Local API."
+                    .to_string(),
+            );
+            return;
+        }
         let generation = self.inner.generation.fetch_add(1, Ordering::SeqCst) + 1;
         let api = self.clone();
         let port = settings.local_api_port;
@@ -342,6 +349,18 @@ async fn handle_connection(
             .extra_headers
             .push(("WWW-Authenticate", "Bearer".to_string()));
         write_response(&mut stream, &response).await?;
+        return Ok(());
+    }
+    if !api.inner.license.has_entitlement("local-api") {
+        write_response(
+            &mut stream,
+            &Response::error(
+                403,
+                "entitlement_required",
+                "This license does not include the local-api entitlement",
+            ),
+        )
+        .await?;
         return Ok(());
     }
     if request.headers.contains_key("origin") || request.headers.contains_key("referer") {

@@ -198,6 +198,7 @@ function VoiceoverWorkspace({
     window.speechSynthesis.addEventListener("voiceschanged", load);
     return () => {
       window.speechSynthesis.removeEventListener("voiceschanged", load);
+      utteranceRef.current = null;
       window.speechSynthesis.cancel();
     };
   }, [supported]);
@@ -229,8 +230,8 @@ function VoiceoverWorkspace({
 
   function stopSpeaking() {
     if (!supported) return;
-    window.speechSynthesis.cancel();
     utteranceRef.current = null;
+    window.speechSynthesis.cancel();
     setSpeaking(false);
     setPaused(false);
   }
@@ -271,13 +272,24 @@ function VoiceoverWorkspace({
     utterance.pitch = voiceover?.pitch ?? 1;
     utterance.volume = voiceover?.volume ?? 1;
     utterance.onend = () => {
+      if (utteranceRef.current !== utterance) return;
+      utteranceRef.current = null;
       setSpeaking(false);
       setPaused(false);
     };
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
+      // `cancel` and `interrupted` are emitted for user-initiated stops (stop
+      // button, new line, unmount). Only surface genuine engine failures.
+      const cancelled =
+        utteranceRef.current !== utterance ||
+        event.error === "canceled" ||
+        event.error === "interrupted";
+      if (utteranceRef.current === utterance) utteranceRef.current = null;
       setSpeaking(false);
       setPaused(false);
-      toast.error("Preview stopped", "The system speech engine could not finish this line.");
+      if (!cancelled) {
+        toast.error("Preview stopped", "The system speech engine could not finish this line.");
+      }
     };
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
