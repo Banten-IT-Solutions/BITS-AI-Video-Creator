@@ -87,6 +87,14 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    # audit-check publishes a commit check whenever it has findings. Without
+    # `checks: write` that API call fails and the job fails even when only
+    # unmaintained/unsound warnings are present (this project has five
+    # transitive ones). `issues: write` is for scheduled runs.
+    permissions:
+      contents: read
+      checks: write
+      issues: write
     steps:
       - name: Check out repository
         uses: actions/checkout@v7

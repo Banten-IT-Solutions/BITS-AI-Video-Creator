@@ -3,6 +3,44 @@
 All notable changes to BITS AI Video Creator are documented here. The format follows Keep a Changelog and the
 project uses semantic versioning.
 
+## [Unreleased]
+
+### Added
+
+- Dependency auditing in CI and release workflows (`cargo audit`, `npm audit`) plus weekly Dependabot
+  updates for npm, Cargo, and GitHub Actions.
+- Frontend adapter and contract tests for the Rust license status payload, covering `state`/`message`
+  to `status`/`error` mapping and Unix-second timestamps.
+- Schema downgrade guard, permanent scheduler idempotency keys (migration 004), and entitlement checks
+  for storyboard, voiceover, provider-workspaces, automation, local-api, and updates.
+- Periodic license refresh and log-retention loops, system clock-rollback detection, and Unix
+  file-permission hardening for the data directory, database, backups, exports, and staged restores.
+
+### Changed
+
+- Upgraded runtime and development dependencies to current majors, including React 19, Vite 8,
+  TypeScript 7, reqwest 0.13, rusqlite 0.40, keyring 4, cron 0.17, and Tauri 2.12.
+- Import, export, backup, and restore commands now run off the UI thread.
+- Dashboard, run, and log polling slows down when no work is active.
+- Release workflow validates the tag and checked-out commit, aligns versions before packaging, and
+  uses version-specific release notes.
+
+### Fixed
+
+- Deleting a workflow with active runs is refused, and retrying a run whose workflow was deleted now
+  reports a clear error.
+- Unsaved editor and voiceover changes are protected against back/forward navigation.
+- Voiceover cancel/interrupt no longer shows a false error toast; run-detail copied state resets per
+  run; provider webviews can be retried after a failure.
+- Mobile navigation drawer traps focus, closes on Escape, and locks background scroll.
+- Release checksums no longer include a self-referential `SHA256SUMS.txt` entry.
+
+### Security
+
+- Removed the vulnerable `zip` 4.x dependency by disabling the unused v1 compressed-bundle feature of
+  `tauri-plugin-updater`.
+- Disabled Android backups to keep the local database out of cloud/ADB backup archives.
+
 ## [1.0.0] — 2026-10-21
 
 ### Added
