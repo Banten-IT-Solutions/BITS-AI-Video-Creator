@@ -401,28 +401,18 @@ export interface PluginSummary {
   updatedAt: string;
 }
 
-export interface LicenseStatus {
-  mode: "open" | "enforced" | string;
-  licensed: boolean;
-  plan: string | null;
-  planName: string | null;
-  subject: string | null;
-  licenseId: string | null;
-  issuedAt: string | null;
-  expiresAt: string | null;
-  daysRemaining: number | null;
-  deviceId: string;
-  message: string;
-}
+export type LicenseStateStatus = "licensed" | "unlinked" | "expired" | "error";
 
-export interface LicensePlan {
-  id: "monthly" | "yearly" | "lifetime" | string;
-  name: string;
-  priceIdr: number;
-  billingPeriod: "monthly" | "yearly" | "lifetime" | string;
-  durationDays: number | null;
-  description: string;
-  features: string[];
+export interface LicenseState {
+  status: LicenseStateStatus;
+  plan: string | null;
+  licenseId: string | null;
+  expiresAt: string | null;
+  licenseExpiresAt: string | null;
+  entitlements: string[];
+  deviceId: string | null;
+  lastSyncedAt: string | null;
+  error: string | null;
 }
 
 export interface Voiceover {

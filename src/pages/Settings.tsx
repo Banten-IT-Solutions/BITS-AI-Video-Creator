@@ -17,12 +17,12 @@ import {
   Loader2,
   Monitor,
   Moon,
-  Power,
   RefreshCw,
   Save,
   ShieldCheck,
   Sun,
   Trash2,
+  Unlink,
   Upload,
 } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
@@ -44,20 +44,26 @@ import {
   Toggle,
 } from "../components/ui";
 import { api, toApiError } from "../lib/api";
-import { formatBytes, formatDateTime, relativeTime } from "../lib/format";
+import { formatBytes, formatDateTime, relativeTime, truncate, type Tone } from "../lib/format";
 import { isAndroid } from "../lib/platform";
 import { setBeforeNavigate } from "../lib/router";
 import type {
   DuplicateStrategy,
   ImportPreview,
-  LicensePlan,
-  LicenseStatus,
+  LicenseState,
   LocalApiStatus,
   Settings,
   UpdateInfo,
 } from "../lib/types";
 
 type Tab = "general" | "engine" | "integrations" | "secrets" | "data" | "about";
+
+const LICENSE_STATUS_META: Record<LicenseState["status"], { label: string; tone: Tone }> = {
+  licensed: { label: "Aktif", tone: "success" },
+  unlinked: { label: "Belum Terhubung", tone: "neutral" },
+  expired: { label: "Kedaluwarsa", tone: "warning" },
+  error: { label: "Kesalahan", tone: "danger" },
+};
 
 const TABS: Array<{ id: Tab; label: string }> = [
   { id: "general", label: "General" },
@@ -67,10 +73,6 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: "data", label: "Data & backup" },
   { id: "about", label: "About" },
 ];
-
-function formatIdr(value: number): string {
-  return `Rp${value.toLocaleString("id-ID")}`;
-}
 
 function initialTab(): Tab {
   const hash = window.location.hash;
@@ -485,16 +487,11 @@ function IntegrationsTab({
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [updateResult, setUpdateResult] = useState<UpdateInfo | null | undefined>(undefined);
   const [installOpen, setInstallOpen] = useState(false);
-  const [deactivateOpen, setDeactivateOpen] = useState(false);
+  const [unlinkOpen, setUnlinkOpen] = useState(false);
 
   const secrets = useQuery({ queryKey: ["secrets"], queryFn: api.listSecrets });
   const localApi = useQuery({ queryKey: ["local-api"], queryFn: api.getLocalApiStatus });
-  const license = useQuery({ queryKey: ["license"], queryFn: api.getLicenseStatus, staleTime: 15_000 });
-  const plans = useQuery({
-    queryKey: ["license-plans"],
-    queryFn: api.getLicensePlans,
-    staleTime: Infinity,
-  });
+  const license = useQuery({ queryKey: ["license"], queryFn: api.getLicenseState, staleTime: 15_000 });
 
   const saveProxy = useMutation({
     mutationFn: () => api.setProxyPassword(proxyPassword.trim() || null),
@@ -549,14 +546,23 @@ function IntegrationsTab({
     },
   });
 
-  const deactivate = useMutation({
-    mutationFn: api.deactivateLicense,
+  const unlink = useMutation({
+    mutationFn: api.unlinkLicense,
     onSuccess: () => {
-      toast.success("License removed", "Activate a new token to continue.");
-      setDeactivateOpen(false);
+      toast.success("Lisensi Diputus", "Hubungkan lisensi lagi untuk melanjutkan.");
+      setUnlinkOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["license"] });
     },
-    onError: (cause) => toast.error("Unable to remove license", toApiError(cause).message),
+    onError: (cause) => toast.error("Gagal Memutus Lisensi", toApiError(cause).message),
+  });
+
+  const refreshLicense = useMutation({
+    mutationFn: api.refreshLicense,
+    onSuccess: (next) => {
+      queryClient.setQueryData(["license"], next);
+      void queryClient.invalidateQueries({ queryKey: ["license"] });
+    },
+    onError: (cause) => toast.error("Gagal Menyegarkan Lisensi", toApiError(cause).message),
   });
 
   const copy = async (value: string, label: string) => {
@@ -573,7 +579,8 @@ function IntegrationsTab({
     (secret) => secret.name === "tts.api_key" || secret.name === "ai.api_key",
   );
   const localStatus: LocalApiStatus | undefined = localApi.data;
-  const licenseStatus: LicenseStatus | undefined = license.data;
+  const licenseState: LicenseState | undefined = license.data;
+  const licenseMeta = licenseState ? LICENSE_STATUS_META[licenseState.status] : null;
 
   return (
     <div className="mt-4 grid gap-4 xl:grid-cols-2">
@@ -888,97 +895,78 @@ function IntegrationsTab({
 
       <Card>
         <CardHeader
-          title="License"
-          description="Offline Ed25519-signed license state. Device binding is optional and set by the issuer."
+          title="Lisensi"
+          description="Lisensi terhubung ke BITS License Manager dan terikat pada perangkat ini."
           actions={
-            <Badge tone={licenseStatus?.licensed ? "success" : "warning"} dot>
-              {licenseStatus?.mode === "open" ? "open build" : licenseStatus?.licensed ? "licensed" : "unlicensed"}
-            </Badge>
+            licenseMeta ? (
+              <Badge tone={licenseMeta.tone} dot>
+                {licenseMeta.label}
+              </Badge>
+            ) : null
           }
         />
         <div className="space-y-3 p-4">
           {license.isLoading ? (
             <div className="flex items-center gap-2 text-xs text-muted">
-              <Loader2 size={13} className="animate-spin" /> Loading license…
+              <Loader2 size={13} className="animate-spin" /> Memuat lisensi…
             </div>
-          ) : licenseStatus ? (
+          ) : licenseState ? (
             <>
               <dl className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Plan</dt>
-                  <dd className="mt-1 text-[11px] text-fg">
-                    {licenseStatus.planName ?? licenseStatus.plan ?? "Open build"}
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Paket</dt>
+                  <dd className="mt-1 text-[11px] text-fg">{licenseState.plan ?? "—"}</dd>
+                </div>
+                <div>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">ID Lisensi</dt>
+                  <dd className="mt-1 truncate font-mono text-[11px] text-fg" title={licenseState.licenseId ?? undefined}>
+                    {licenseState.licenseId ? truncate(licenseState.licenseId, 14) : "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Expires</dt>
-                  <dd className="mt-1 text-[11px] text-fg">
-                    {licenseStatus.expiresAt ? formatDateTime(licenseStatus.expiresAt) : "No expiry"}
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Perangkat</dt>
+                  <dd className="mt-1 truncate font-mono text-[11px] text-muted" title={licenseState.deviceId ?? undefined}>
+                    {licenseState.deviceId ? truncate(licenseState.deviceId, 12) : "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Licensee</dt>
-                  <dd className="mt-1 text-[11px] text-fg">{licenseStatus.subject ?? "—"}</dd>
-                </div>
-                <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Remaining</dt>
-                  <dd className="mt-1 text-[11px] text-fg">
-                    {licenseStatus.daysRemaining == null
-                      ? "No expiry"
-                      : `${licenseStatus.daysRemaining} day${licenseStatus.daysRemaining === 1 ? "" : "s"}`}
-                  </dd>
-                </div>
-                <div className="col-span-2">
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Device id</dt>
-                  <dd className="mt-1 break-all font-mono text-[10px] text-muted">{licenseStatus.deviceId}</dd>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Terakhir Disinkronkan</dt>
+                  <dd className="mt-1 text-[11px] text-fg">{relativeTime(licenseState.lastSyncedAt)}</dd>
                 </div>
               </dl>
-              <p className="rounded-lg border border-line/70 bg-surface/50 p-2.5 text-[10px] leading-4 text-muted">
-                {licenseStatus.message}
-              </p>
-              {licenseStatus.mode === "enforced" && licenseStatus.licensed ? (
-                <Button size="sm" variant="danger" icon={<Power size={12} />} onClick={() => setDeactivateOpen(true)}>
-                  Deactivate license
-                </Button>
+              {licenseState.entitlements.length > 0 ? (
+                <div>
+                  <SectionLabel>Hak Akses</SectionLabel>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {licenseState.entitlements.map((entitlement) => (
+                      <Badge key={entitlement} tone="neutral">
+                        {entitlement}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
               ) : null}
+              {licenseState.error ? (
+                <p className="rounded-lg border border-danger/25 bg-danger/5 p-2.5 text-[10.5px] leading-4 text-danger">
+                  {licenseState.error}
+                </p>
+              ) : null}
+              <div className="flex flex-wrap gap-2 border-t border-line/60 pt-3">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<RefreshCw size={12} />}
+                  loading={refreshLicense.isPending}
+                  onClick={() => refreshLicense.mutate()}
+                >
+                  Segarkan
+                </Button>
+                <Button size="sm" variant="danger" icon={<Unlink size={12} />} onClick={() => setUnlinkOpen(true)}>
+                  Putuskan
+                </Button>
+              </div>
             </>
           ) : null}
-
-          <div className="border-t border-line/60 pt-3">
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[10px] font-semibold uppercase tracking-[0.1em] text-faint">Plans</p>
-              <a
-                href="https://bits.co.id"
-                target="_blank"
-                rel="noreferrer"
-                className="text-[10px] font-medium text-accent hover:underline"
-              >
-                Order via bits.co.id
-              </a>
-            </div>
-            <div className="mt-2 grid gap-2 sm:grid-cols-3">
-              {(plans.data ?? []).map((plan: LicensePlan) => (
-                <div
-                  key={plan.id}
-                  className={`rounded-lg border p-2.5 ${
-                    licenseStatus?.plan === plan.id
-                      ? "border-accent/40 bg-accent/[0.055]"
-                      : "border-line/70 bg-surface/50"
-                  }`}
-                >
-                  <p className="text-[10px] font-medium text-fg">{plan.name}</p>
-                  <p className="numeric mt-1 text-[11px] font-semibold text-accent">{formatIdr(plan.priceIdr)}</p>
-                  <p className="mt-0.5 text-[9px] leading-4 text-faint">
-                    {plan.durationDays ? `${plan.durationDays} hari` : "Tanpa kedaluwarsa"}
-                  </p>
-                </div>
-              ))}
-            </div>
-            <p className="mt-2 text-[9.5px] leading-4 text-faint">
-              Licensed builds are activated with a signed token. Payment is handled by BITS; the app never processes
-              card data or contacts a license server.
-            </p>
-          </div>
         </div>
       </Card>
 
@@ -1000,13 +988,13 @@ function IntegrationsTab({
       />
 
       <ConfirmDialog
-        open={deactivateOpen}
-        title="Deactivate license"
-        description="This removes the local license token. If this build is license-gated, the workspace will lock immediately and you will need a valid token to continue."
-        confirmLabel="Deactivate license"
-        busy={deactivate.isPending}
-        onConfirm={() => deactivate.mutate()}
-        onClose={() => setDeactivateOpen(false)}
+        open={unlinkOpen}
+        title="Putuskan Lisensi"
+        description="Token perangkat ini akan dicabut dan cache lisensi dihapus. Ruang kerja akan terkunci hingga Anda menghubungkan lisensi lagi."
+        confirmLabel="Putuskan"
+        busy={unlink.isPending}
+        onConfirm={() => unlink.mutate()}
+        onClose={() => setUnlinkOpen(false)}
       />
     </div>
   );

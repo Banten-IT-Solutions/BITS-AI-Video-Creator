@@ -54,14 +54,18 @@ The design mitigates:
 
 ## Licensing
 
-- Release builds embed an Ed25519 public key through `BITS_LICENSE_PUBKEY` and verify `BITS1` tokens
-  locally. Private license keys never ship with the app.
+- Release builds fetch the Ed25519 public key from BITS License Manager
+  (`/api/v1/meta/license-pubkey`), pin it via `BITS_LICENSE_PUBKEY`, and verify `BITS` v2 tokens
+  locally. Private license keys never ship with the app; release builds without a pinned key fail
+  closed.
 - Development and CI builds without that variable run in `open` mode. Do not publish such a build
   as the paid release.
-- License tokens are signed, not encrypted. Treat the token as a bearer credential and do not post
-  it publicly. The optional device binding limits reuse on other devices.
-- The app does not process card data, call a payment gateway, or contact a license server. Payment
-  and order handling are external at <https://bits.co.id>.
+- License tokens are signed, not encrypted. Treat the token and the device token (`btk_…`) as
+  bearer credentials and do not post them publicly. Device binding (one device per license)
+  limits reuse, and the pairing can be revoked from the BITS License Manager dashboard.
+- The app contacts only BITS License Manager for licensing (pairing exchange, activation, token
+  refresh). It does not process card data or call a payment gateway; payment and order handling
+  are external at <https://bits.co.id>.
 
 ## Local API
 

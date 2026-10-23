@@ -1808,7 +1808,11 @@ mod tests {
         handle.await.unwrap();
         let stored = db.get_run(&run.id).unwrap();
         assert_eq!(stored.status, "failed");
-        assert!(stored.error.unwrap().to_lowercase().contains("license"));
+        assert!(stored
+            .error
+            .unwrap()
+            .to_lowercase()
+            .contains("lisensi"));
         assert!(db
             .list_logs(&LogFilter::default())
             .unwrap()

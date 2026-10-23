@@ -21,8 +21,6 @@ concurrency:
 env:
   TAG_NAME: ${{ inputs.tag || github.ref_name }}
   VERSION: ${{ inputs.tag || github.ref_name }}
-  # Public Ed25519 key. The private issuer key stays offline and is never shipped.
-  BITS_LICENSE_PUBKEY: mD6rxHPWOGvBkQWkoyfDUO7/L2iZ7OJ3VYYZCwDlY0U=
 
 jobs:
   linux:
@@ -32,6 +30,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Pin license public key from BITS License Manager
+        run: |
+          PUBKEY="$(curl -fsSL --retry 3 https://license.bits.co.id/api/v1/meta/license-pubkey | jq -er '.data.publicKey | select(length >= 43 and length <= 44)')"
+          echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -89,6 +92,12 @@ jobs:
       - name: Check out repository
         uses: actions/checkout@v4
 
+      - name: Pin license public key from BITS License Manager
+        shell: bash
+        run: |
+          PUBKEY="$(curl -fsSL --retry 3 https://license.bits.co.id/api/v1/meta/license-pubkey | jq -er '.data.publicKey | select(length >= 43 and length <= 44)')"
+          echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
+
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
@@ -137,6 +146,11 @@ jobs:
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+
+      - name: Pin license public key from BITS License Manager
+        run: |
+          PUBKEY="$(curl -fsSL --retry 3 https://license.bits.co.id/api/v1/meta/license-pubkey | jq -er '.data.publicKey | select(length >= 43 and length <= 44)')"
+          echo "BITS_LICENSE_PUBKEY=$PUBKEY" >> "$GITHUB_ENV"
 
       - name: Set up Node.js
         uses: actions/setup-node@v4

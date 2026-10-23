@@ -46,23 +46,19 @@ Video Creator database.
 
 ## Plans and licensing
 
-BITS AI Video Creator 1.0.0 is licensed per workspace, with three paid plans:
+BITS AI Video Creator is licensed through [BITS License Manager](https://license.bits.co.id).
+Plans are purchased there; entitlements follow the plan's feature codes and device binding is
+one device per license.
 
-| Plan | Price | Term |
-|---|---:|---|
-| Bulanan | **Rp20.000** | 30 days |
-| Tahunan | **Rp200.000** | 365 days |
-| Lifetime | **Rp500.000** | No expiry |
-
-Payment and order handling are external through [bits.co.id](https://bits.co.id). The app does not
-process card data, call a payment gateway, or phone home to a license server. After payment is
-confirmed, the issuer signs an offline license token with the private key; the user pastes the
-token into the activation screen. Release builds embed the matching Ed25519 public key through
-`BITS_LICENSE_PUBKEY`. Local development builds without that variable run in `open` mode.
-
-License tokens use the `BITS1.<payload>.<signature>` format and can be device-bound. The issuer CLI
-lives in `crates/bits-ai-video-creator-core/src/bin/license-issuer.rs` and is never bundled with the
-desktop application. Fees, taxes, refunds, and fulfillment remain the responsibility of the seller.
+Licensing flow: log in on the BITS License Manager web dashboard, open **Hubungkan Aplikasi**,
+and paste the 8-character pairing code into the app's activation screen. The app exchanges the
+code for a device token, activates this device, and receives a short-lived license token
+(`BITS.<payload>.<signature>`, Ed25519, 30-day refresh TTL even for lifetime licenses) that is
+verified offline against the public key pinned at build time via `BITS_LICENSE_PUBKEY`. The
+token is refreshed online ahead of expiry; a still-valid cached token keeps the app usable
+while offline. Local development builds without a pinned key run in `open` mode; release
+builds without one fail closed. Fees, taxes, refunds, and fulfillment remain the
+responsibility of the seller.
 
 ## Platform support
 
@@ -172,10 +168,11 @@ cargo test --workspace
 npm run tauri build
 ```
 
-Release builds should embed the license public key and sign updater artifacts:
+Release builds fetch the license public key from BITS License Manager and pin it at build time,
+then sign updater artifacts:
 
 ```bash
-export BITS_LICENSE_PUBKEY="$(cat .secrets/bits-ai-video-creator-license.pub)"
+export BITS_LICENSE_PUBKEY="$(curl -fsSL https://license.bits.co.id/api/v1/meta/license-pubkey | jq -r .data.publicKey)"
 export TAURI_SIGNING_PRIVATE_KEY="$(cat .secrets/bits-ai-video-creator-updater.key)"
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$(cat .secrets/updater-password-new.txt)"
 npm run tauri build -- --bundles deb,appimage

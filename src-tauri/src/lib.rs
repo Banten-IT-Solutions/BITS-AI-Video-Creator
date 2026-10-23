@@ -8,7 +8,7 @@ use bits_ai_video_creator_core::db::Database;
 use bits_ai_video_creator_core::engine::{Engine, RunExecutor, PROXY_PASSWORD_SECRET};
 use bits_ai_video_creator_core::error::{CoreError, Result as CoreResult};
 use bits_ai_video_creator_core::import_export;
-use bits_ai_video_creator_core::license::{license_plans, LicenseManager};
+use bits_ai_video_creator_core::license::LicenseManager;
 use bits_ai_video_creator_core::models::*;
 use bits_ai_video_creator_core::plugins;
 use bits_ai_video_creator_core::provider_tools;
@@ -697,31 +697,43 @@ async fn generate_workflow_draft(
 // ---------- License ----------
 
 #[tauri::command]
-fn get_license_status(state: State<'_, AppState>) -> LicenseStatus {
+fn license_state(state: State<'_, AppState>) -> LicenseStatus {
     state.license.status()
 }
 
 #[tauri::command]
-fn activate_license(state: State<'_, AppState>, token: String) -> CoreResult<LicenseStatus> {
-    let status = state.license.activate(&token)?;
+async fn license_link_code(
+    state: State<'_, AppState>,
+    code: String,
+) -> CoreResult<LicenseStatus> {
+    let status = state.license.link_code(&code).await?;
     let settings = state.db.get_settings()?;
     state.local_api.reconfigure(&settings);
-    log(&state, "info", "license", "License activated");
+    log(
+        &state,
+        "info",
+        "license",
+        &format!("License linked ({})", status.license_id.clone().unwrap_or_default()),
+    );
     Ok(status)
 }
 
 #[tauri::command]
-fn deactivate_license(state: State<'_, AppState>) -> CoreResult<LicenseStatus> {
-    let status = state.license.deactivate()?;
+async fn license_refresh(state: State<'_, AppState>) -> CoreResult<LicenseStatus> {
+    let status = state.license.refresh().await?;
     let settings = state.db.get_settings()?;
     state.local_api.reconfigure(&settings);
-    log(&state, "info", "license", "License deactivated");
+    log(&state, "info", "license", "License refreshed");
     Ok(status)
 }
 
 #[tauri::command]
-fn get_license_plans() -> Vec<LicensePlan> {
-    license_plans()
+async fn license_unlink(state: State<'_, AppState>) -> CoreResult<LicenseStatus> {
+    let status = state.license.unlink().await?;
+    let settings = state.db.get_settings()?;
+    state.local_api.reconfigure(&settings);
+    log(&state, "info", "license", "License unlinked");
+    Ok(status)
 }
 
 // ---------- Native storyboard studio ----------
@@ -1288,6 +1300,19 @@ pub fn run() {
             });
             let state = app.state::<AppState>();
             state.local_api.reconfigure(&state.db.get_settings()?);
+            {
+                // Launch-time license sync; keeps the cached verified token
+                // fresh (stale-while-offline) without blocking startup.
+                let license = state.license.clone();
+                let db = state.db.clone();
+                tauri::async_runtime::spawn(async move {
+                    let (level, message) = match license.ensure_fresh().await {
+                        Ok(status) => ("info", status.message),
+                        Err(error) => ("warn", error.to_string()),
+                    };
+                    let _ = db.insert_log(&level, "license", None, &message, None);
+                });
+            }
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1333,11 +1358,10 @@ pub fn run() {
             delete_secret,
             set_proxy_password,
             generate_workflow_draft,
-            get_license_status,
-            activate_license,
-            deactivate_license,
-            get_license_plans,
-            list_storyboards,
+            license_state,
+            license_link_code,
+            license_refresh,
+            license_unlink,            list_storyboards,
             get_storyboard,
             create_storyboard,
             update_storyboard,

@@ -535,34 +535,28 @@ pub struct PluginSummary {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct LicenseStatus {
-    /// `open` means this build has no license public key and is not gated.
-    /// `enforced` means a public key is compiled in and a valid token is required.
+    /// `open` means this is a debug build without a pinned license public
+    /// key and is not gated. `enforced` means a key is compiled in.
     pub mode: String,
+    /// `licensed`, `unlinked`, `expired`, or `error`.
+    pub state: String,
     pub licensed: bool,
     pub plan: Option<String>,
-    pub plan_name: Option<String>,
-    pub subject: Option<String>,
     pub license_id: Option<String>,
-    pub issued_at: Option<String>,
-    pub expires_at: Option<String>,
+    pub subject: Option<String>,
+    pub kid: Option<String>,
+    /// Unix seconds.
+    pub issued_at: Option<i64>,
+    /// Unix seconds; token refresh TTL (always enforced, even for lifetime).
+    pub expires_at: Option<i64>,
+    /// Unix seconds; `None` means a lifetime license.
+    pub license_expires_at: Option<i64>,
     pub days_remaining: Option<i64>,
+    /// Entitlement codes from the token (e.g. `storyboard`, `local-api`).
+    pub entitlements: Vec<String>,
     pub device_id: String,
+    pub last_synced_at: Option<String>,
     pub message: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "camelCase")]
-pub struct LicensePlan {
-    pub id: String,
-    pub name: String,
-    /// Price in Indonesian rupiah.
-    pub price_idr: i64,
-    /// `monthly`, `yearly`, or `lifetime`.
-    pub billing_period: String,
-    /// `None` means the license does not expire.
-    pub duration_days: Option<u32>,
-    pub description: String,
-    pub features: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

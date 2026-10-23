@@ -114,7 +114,7 @@ export function App() {
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const license = useQuery({
     queryKey: ["license"],
-    queryFn: api.getLicenseStatus,
+    queryFn: api.getLicenseState,
     staleTime: 15_000,
     retry: 1,
   });
@@ -151,23 +151,21 @@ export function App() {
     );
   }
 
-  if (license.data && license.data.mode === "enforced" && !license.data.licensed) {
-    return <LicenseGate status={license.data} />;
-  }
-
   return (
-    <ErrorBoundary>
-      <AppShell route={route}>
-        <Suspense
-          fallback={
-            <div className="flex h-full items-center justify-center p-10 text-xs text-muted">
-              <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading editor…
-            </div>
-          }
-        >
-          <CurrentPage />
-        </Suspense>
-      </AppShell>
-    </ErrorBoundary>
+    <LicenseGate state={license.data}>
+      <ErrorBoundary>
+        <AppShell route={route}>
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center p-10 text-xs text-muted">
+                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading editor…
+              </div>
+            }
+          >
+            <CurrentPage />
+          </Suspense>
+        </AppShell>
+      </ErrorBoundary>
+    </LicenseGate>
   );
 }

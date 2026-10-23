@@ -10,8 +10,7 @@ import type {
   DuplicateStrategy,
   ImportPreview,
   ImportResult,
-  LicensePlan,
-  LicenseStatus,
+  LicenseState,
   LocalApiStatus,
   LogEntry,
   LogFilter,
@@ -140,10 +139,10 @@ export const api = {
   generateWorkflowDraft: (description: string) =>
     call<WorkflowDraft>("generate_workflow_draft", { description }),
 
-  getLicenseStatus: () => call<LicenseStatus>("get_license_status"),
-  getLicensePlans: () => call<LicensePlan[]>("get_license_plans"),
-  activateLicense: (token: string) => call<LicenseStatus>("activate_license", { token }),
-  deactivateLicense: () => call<LicenseStatus>("deactivate_license"),
+  getLicenseState: () => call<LicenseState>("license_state"),
+  linkLicenseCode: (code: string) => call<LicenseState>("license_link_code", { code }),
+  refreshLicense: () => call<LicenseState>("license_refresh"),
+  unlinkLicense: () => call<LicenseState>("license_unlink"),
 
   listStoryboards: () => call<StoryboardSummary[]>("list_storyboards"),
   getStoryboard: (id: string) => call<Storyboard>("get_storyboard", { id }),
