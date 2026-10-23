@@ -1310,7 +1310,7 @@ pub fn run() {
                         Ok(status) => ("info", status.message),
                         Err(error) => ("warn", error.to_string()),
                     };
-                    let _ = db.insert_log(&level, "license", None, &message, None);
+                    let _ = db.insert_log(level, "license", None, &message, None);
                 });
             }
             Ok(())
