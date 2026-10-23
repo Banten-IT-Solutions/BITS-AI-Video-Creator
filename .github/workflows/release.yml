@@ -491,10 +491,11 @@ jobs:
           print(json.dumps(manifest, indent=2))
           PY
           cd release
-          # Build the checksum list without the output file itself: shell
+          # Build the checksum list without the output file itself or the
+          # release body (notes.md is not uploaded as an asset): shell
           # redirection creates SHA256SUMS.txt before the glob expands, so
           # `sha256sum *` would hash an empty file and record a wrong entry.
-          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' -printf '%P\n' \
+          find . -maxdepth 1 -type f ! -name 'SHA256SUMS.txt' ! -name 'notes.md' -printf '%P\n' \
             | sort \
             | xargs -r sha256sum > SHA256SUMS.txt
           cat SHA256SUMS.txt
