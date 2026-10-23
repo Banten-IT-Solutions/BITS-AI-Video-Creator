@@ -1,5 +1,9 @@
 # BITS AI Video Creator 1.0.0 — Release Verification
 
+> Historical record: the original `v1.0.0` release, tag, workflow runs, and artifacts were removed
+> when the project moved to semantic-release and started from a clean slate. The links below describe
+> them as they existed at the time.
+
 Status: **published and mechanically verified from GitHub Actions. Windows and Android runtime
 behavior remain unverified on real hardware.**
 

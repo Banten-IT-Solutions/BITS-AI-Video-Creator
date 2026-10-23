@@ -60,26 +60,13 @@ tagging, or publishing. A token is required because the GitHub plugin verifies r
 
 ## Tag format
 
-Tags are bare versions such as `1.2.3`, without a `v` prefix. The historical `v1.0.0` tag is kept
-because published asset and updater URLs point at it. A lightweight `1.0.0` alias tag on the same
-commit gives semantic-release its baseline. This is a one-time transition step: push the alias tag
-**before** the first push of `main` that enables the workflow.
-
-```bash
-git tag 1.0.0 bb0d40e
-git push bits 1.0.0
-```
-
-`release.yml` detects the existing `v1.0.0` release and skips rebuilding the alias tag, so no
-duplicate 1.0.0 artifacts are published. Do not create `v`-prefixed tags for new releases.
+Tags are bare versions such as `1.2.3`, without a `v` prefix. Do not create `v`-prefixed tags.
 
 ## First automated release
 
-`1.0.0` (aliased from the historical `v1.0.0`) is the baseline. Since then, `main` contains the
-breaking commit `feat!: full BITS License Manager integration, remove BITS1 offline scheme`, so the
-first automated release is expected to be **2.0.0**. If a minor release is preferred instead, map
-breaking changes to `minor` in the `releaseRules` section of `.releaserc.json` before enabling the
-workflow.
+The repository starts from a clean slate: no releases or tags remain from the manual 1.0.0 era. The
+first push to `main` therefore publishes **1.0.0** from the current history, and later releases
+follow Conventional Commits from that tag.
 
 ## Requirements and rollback
 
@@ -90,7 +77,7 @@ workflow.
 - To undo a release, delete the GitHub release and tag, then revert the release commit:
 
   ```bash
-  gh release delete 2.0.0 --yes --cleanup-tag
+  gh release delete 1.2.3 --yes --cleanup-tag
   git revert <release-commit>
   ```
 

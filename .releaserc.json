@@ -22,7 +22,13 @@
         }
       }
     ],
-    ["@semantic-release/changelog", { "changelogFile": "CHANGELOG.md" }],
+    [
+      "@semantic-release/changelog",
+      {
+        "changelogFile": "CHANGELOG.md",
+        "changelogTitle": "# Changelog\n\nAll notable changes to BITS AI Video Creator are documented here. The format follows Keep a Changelog\nand the project uses semantic versioning."
+      }
+    ],
     [
       "@semantic-release/exec",
       {
