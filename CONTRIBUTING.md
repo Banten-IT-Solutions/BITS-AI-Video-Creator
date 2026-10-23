@@ -72,6 +72,9 @@ delete or rename that tracked file without checking a clean Android build.
 
 ## Commits and pull requests
 
+- Use [Conventional Commits](https://www.conventionalcommits.org/): `feat:`, `fix:`, `perf:`,
+  `docs:`, `refactor:`, `test:`, `ci:`, and `feat!:`/`BREAKING CHANGE:` for incompatible changes.
+  Releases are automated from these messages; see [docs/RELEASING.md](docs/RELEASING.md).
 - Keep commits focused and explain user-visible behavior.
 - Include tests for core logic changes.
 - State which platforms you built or tested. Do not claim Windows, Android, or iOS runtime testing

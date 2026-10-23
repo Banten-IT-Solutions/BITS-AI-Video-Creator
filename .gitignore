@@ -52,6 +52,9 @@ src-tauri/gen/android/tauri.settings.gradle
 backups/
 webview-profiles/
 
+# Generated release marker
+.release-version
+
 # Logs, captures, and OS/editor files
 *.log
 *.tmp

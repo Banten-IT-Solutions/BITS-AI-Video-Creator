@@ -3,6 +3,14 @@
   "private": true,
   "version": "1.0.0",
   "description": "BITS AI Video Creator — Local-first storyboard, voiceover, and AI video studio",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator.git"
+  },
+  "homepage": "https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator#readme",
+  "bugs": {
+    "url": "https://github.com/Banten-IT-Solutions/BITS-AI-Video-Creator/issues"
+  },
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -11,7 +19,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "tauri": "tauri",
-    "check": "tsc --noEmit -p tsconfig.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false"
+    "check": "tsc --noEmit -p tsconfig.json --pretty false && tsc --noEmit -p tsconfig.node.json --pretty false",
+    "release": "semantic-release",
+    "release:dry": "semantic-release --dry-run"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.5",
@@ -26,6 +36,12 @@
     "react-dom": "^19.3.1"
   },
   "devDependencies": {
+    "@semantic-release/changelog": "^7.0.0",
+    "@semantic-release/commit-analyzer": "^13.0.1",
+    "@semantic-release/exec": "^7.1.0",
+    "@semantic-release/git": "^11.0.1",
+    "@semantic-release/github": "^12.0.10",
+    "@semantic-release/release-notes-generator": "^14.1.1",
     "@tailwindcss/postcss": "^4.3.3",
     "@tauri-apps/cli": "^2.12.4",
     "@testing-library/jest-dom": "^7.0.1",
@@ -38,6 +54,7 @@
     "autoprefixer": "^10.6.1",
     "jsdom": "^30.1.3",
     "postcss": "^8.5.31",
+    "semantic-release": "^25.0.9",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",

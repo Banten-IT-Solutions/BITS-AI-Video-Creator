@@ -3,11 +3,11 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - "[0-9]*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag, for example v1.0.0"
+        description: "Release tag, for example 1.2.3"
         required: true
         type: string
 
@@ -30,6 +30,7 @@ jobs:
     outputs:
       tag: ${{ steps.meta.outputs.tag }}
       version: ${{ steps.meta.outputs.version }}
+      skip: ${{ steps.legacy.outputs.skip }}
     steps:
       - name: Check out the requested tag
         uses: actions/checkout@v7
@@ -45,8 +46,8 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${TAG_NAME}"
-          if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
-            echo "Invalid release tag '$TAG': expected vMAJOR.MINOR.PATCH." >&2
+          if [[ ! "$TAG" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+][0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid release tag '$TAG': expected MAJOR.MINOR.PATCH without a 'v' prefix." >&2
             exit 1
           fi
           if ! git rev-parse --verify "refs/tags/${TAG}^{commit}" >/dev/null 2>&1; then
@@ -60,11 +61,29 @@ jobs:
             exit 1
           fi
           echo "tag=$TAG" >> "$GITHUB_OUTPUT"
-          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Skip versions already published with a legacy v tag
+        id: legacy
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.meta.outputs.version }}
+        run: |
+          set -euo pipefail
+          # The historical v1.0.0 release predates bare-version tags. A bare
+          # 1.0.0 alias tag gives semantic-release its baseline, but it must
+          # not rebuild or republish the 1.0.0 artifacts.
+          if gh release view "v${VERSION}" >/dev/null 2>&1; then
+            echo "Release v${VERSION} already exists; skipping the legacy alias tag."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
 
   verify:
     name: Verify source before packaging
     needs: validate
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -120,6 +139,7 @@ jobs:
   audit:
     name: Dependency audit
     needs: validate
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
@@ -150,6 +170,7 @@ jobs:
   linux:
     name: Linux bundles
     needs: [validate, verify]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-22.04
     timeout-minutes: 60
     steps:
@@ -200,7 +221,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          VERSION="${VERSION#v}"
           cp target/release/bundle/deb/*.deb "release/BITS-AI-Video-Creator_${VERSION}_amd64.deb"
           cp target/release/bundle/deb/*.sig "release/BITS-AI-Video-Creator_${VERSION}_amd64.deb.sig"
           cp target/release/bundle/appimage/*.AppImage "release/BITS-AI-Video-Creator_${VERSION}_amd64.AppImage"
@@ -218,6 +238,7 @@ jobs:
   windows:
     name: Windows installer
     needs: [validate, verify]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
@@ -262,7 +283,6 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p release
-          VERSION="${VERSION#v}"
           cp target/release/bundle/nsis/*.exe "release/BITS-AI-Video-Creator_${VERSION}_x64-setup.exe"
           EXE_SIG=$(find target/release/bundle/nsis -maxdepth 1 -name '*.exe.sig' | head -1)
           test -n "$EXE_SIG"
@@ -280,6 +300,7 @@ jobs:
   android:
     name: Android signed APK and AAB
     needs: [validate, verify]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     steps:
@@ -358,7 +379,6 @@ jobs:
         run: |
           set -o pipefail
           mkdir -p release
-          VERSION="${VERSION#v}"
           APK=$(find src-tauri/gen/android/app/build/outputs/apk -name '*.apk' | head -1)
           AAB=$(find src-tauri/gen/android/app/build/outputs/bundle -name '*.aab' | head -1)
           test -n "$APK"
@@ -382,6 +402,7 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: [validate, verify, audit, linux, windows, android]
+    if: needs.validate.outputs.skip != 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
@@ -399,6 +420,24 @@ jobs:
         with:
           path: release
           merge-multiple: true
+
+      - name: Read published release notes
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ needs.validate.outputs.tag }}
+        run: |
+          set -euo pipefail
+          # semantic-release already published release notes. Feed them to the
+          # updater manifest instead of replacing them with a generic note.
+          if gh release view "$TAG_NAME" --json body -q .body > release-body.md 2>/dev/null; then
+            if [ -s release-body.md ]; then
+              {
+                echo "RELEASE_BODY<<__RELEASE_BODY_EOF__"
+                cat release-body.md
+                echo "__RELEASE_BODY_EOF__"
+              } >> "$GITHUB_ENV"
+            fi
+          fi
 
       - name: Generate updater manifest and checksums
         env:
@@ -449,16 +488,18 @@ jobs:
               print(f"missing updater platforms: {sorted(missing)}", file=sys.stderr)
               sys.exit(1)
 
-          # Release notes are version-specific. Never fall back to a previous
-          # version's notes; use a short generated note when no file exists.
-          notes_candidates = (
-              f"docs/RELEASE_NOTES_{version}.md",
-              "docs/RELEASE_NOTES.md",
-          )
-          notes = next(
-              (open(path, encoding="utf-8").read() for path in notes_candidates if os.path.exists(path)),
-              f"BITS AI Video Creator {version}.\n\nSee the asset checksums and signatures attached to this release.",
-          )
+          # Prefer the notes semantic-release published for this tag. Fall back
+          # to a version-specific docs file, then a short generated note.
+          notes = os.environ.get("RELEASE_BODY", "").strip()
+          if not notes:
+              notes_candidates = (
+                  f"docs/RELEASE_NOTES_{version}.md",
+                  "docs/RELEASE_NOTES.md",
+              )
+              notes = next(
+                  (open(path, encoding="utf-8").read().strip() for path in notes_candidates if os.path.exists(path)),
+                  f"BITS AI Video Creator {version}.\n\nSee the asset checksums and signatures attached to this release.",
+              )
           with open("release/notes.md", "w", encoding="utf-8") as handle:
               handle.write(notes)
 
@@ -499,10 +540,14 @@ jobs:
           fi
           if gh release view "$TAG_NAME" >/dev/null 2>&1; then
             gh release upload "$TAG_NAME" "${ASSETS[@]}" --clobber
-            gh release edit "$TAG_NAME" --notes-file release/notes.md "${PRERELEASE_FLAGS[@]}"
+            # semantic-release owns the release notes; only keep prerelease
+            # flags correct on a re-run.
+            if [[ "$VERSION" == *-* ]]; then
+              gh release edit "$TAG_NAME" --prerelease --latest=false
+            fi
           else
             gh release create "$TAG_NAME" \
-              --title "BITS AI Video Creator ${TAG_NAME#v}" \
+              --title "BITS AI Video Creator ${TAG_NAME}" \
               --notes-file release/notes.md \
               "${PRERELEASE_FLAGS[@]}" \
               "${ASSETS[@]}"

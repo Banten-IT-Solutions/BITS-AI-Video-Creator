@@ -1,0 +1,61 @@
+name: Semantic Release
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# semantic-release writes the version commit and tag, publishes the GitHub
+# release, and dispatches the artifact build. `actions: write` is required for
+# `gh workflow run`; `checks` are not used here.
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  actions: write
+
+concurrency:
+  group: semantic-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: Version, changelog, and tag
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # semantic-release needs the full history to find the last tag and
+          # must be able to push the release commit and tag.
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx semantic-release
+
+      - name: Trigger artifact build
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ ! -f .release-version ]; then
+            echo "No release was published; skipping the artifact build."
+            exit 0
+          fi
+          TAG="$(cat .release-version)"
+          # Tags created with GITHUB_TOKEN do not trigger `on: push: tags`
+          # workflows, so dispatch the release workflow explicitly.
+          gh workflow run release.yml --ref main -f "tag=$TAG"
+          echo "Dispatched release.yml for $TAG"

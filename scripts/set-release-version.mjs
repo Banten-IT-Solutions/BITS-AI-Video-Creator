@@ -2,7 +2,7 @@
 /**
  * Align every version-bearing file with the release tag before packaging.
  *
- * Usage: node scripts/set-release-version.mjs v1.2.3
+ * Usage: node scripts/set-release-version.mjs 1.2.3
  *
  * The release workflow checks out the exact tag first, then runs this script
  * in each build job. Keeping the version mutation here (instead of committing
@@ -16,7 +16,7 @@ const raw = process.argv[2] ?? "";
 const version = raw.replace(/^v/, "");
 
 if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/.test(version)) {
-  console.error(`Invalid release version: "${raw}". Expected vMAJOR.MINOR.PATCH.`);
+  console.error(`Invalid release version: "${raw}". Expected MAJOR.MINOR.PATCH without a 'v' prefix.`);
   process.exit(1);
 }
 
