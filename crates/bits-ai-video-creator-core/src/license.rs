@@ -207,10 +207,7 @@ impl LicenseManager {
         };
         let open_mode = public_key.is_none() && public_key_error.is_none() && allow_open;
         let http = reqwest::Client::builder()
-            .user_agent(concat!(
-                "BITS-AI-Video-Creator/",
-                env!("CARGO_PKG_VERSION")
-            ))
+            .user_agent(concat!("BITS-AI-Video-Creator/", env!("CARGO_PKG_VERSION")))
             .connect_timeout(Duration::from_secs(5))
             .timeout(Duration::from_secs(15))
             .build()
@@ -289,7 +286,12 @@ impl LicenseManager {
                     Ok(payload) => Some(payload),
                     Err(_) => None,
                 };
-                self.status_with("expired", false, detail.as_ref(), "Lisensi Sudah Kedaluwarsa.")
+                self.status_with(
+                    "expired",
+                    false,
+                    detail.as_ref(),
+                    "Lisensi Sudah Kedaluwarsa.",
+                )
             }
             Err(error) => self.status_with("error", false, None, &error.to_string()),
         }
@@ -303,7 +305,8 @@ impl LicenseManager {
     }
 
     /// Enforces the license for operations that create or execute work.
-    pub fn require(&self) -> Result<()> {        if self.open_mode || self.status().licensed {
+    pub fn require(&self) -> Result<()> {
+        if self.open_mode || self.status().licensed {
             return Ok(());
         }
         Err(CoreError::validation(
@@ -336,7 +339,8 @@ impl LicenseManager {
                 None,
             )
             .await?;
-        self.db.set_meta(LICENSE_DEVICE_TOKEN_META, &exchange.token)?;
+        self.db
+            .set_meta(LICENSE_DEVICE_TOKEN_META, &exchange.token)?;
         if let Some(token_id) = exchange.token_id {
             self.db.set_meta(LICENSE_DEVICE_TOKEN_ID_META, &token_id)?;
         }
@@ -454,7 +458,8 @@ impl LicenseManager {
                         Some(&device_token),
                     )
                     .await?;
-                minted.token
+                minted
+                    .token
                     .ok_or_else(|| CoreError::Http("Server Tidak Mengembalikan Token".into()))?
             }
         };
@@ -488,10 +493,9 @@ impl LicenseManager {
         let response = request.send().await.map_err(|error| {
             CoreError::Http(format!("Server Lisensi Tidak Bisa Dihubungi: {error}"))
         })?;
-        let envelope: Envelope<T> = response
-            .json()
-            .await
-            .map_err(|error| CoreError::Http(format!("Respon Server Lisensi Tidak Valid: {error}")))?;
+        let envelope: Envelope<T> = response.json().await.map_err(|error| {
+            CoreError::Http(format!("Respon Server Lisensi Tidak Valid: {error}"))
+        })?;
         if !envelope.ok {
             return Err(CoreError::validation(
                 envelope
@@ -575,8 +579,8 @@ impl LicenseManager {
         payload: Option<&BitsTokenPayload>,
         message: &str,
     ) -> LicenseStatus {
-        let days_remaining = payload
-            .map(|item| ((item.expires_at - now_ts()).max(0) + 86_399) / 86_400);
+        let days_remaining =
+            payload.map(|item| ((item.expires_at - now_ts()).max(0) + 86_399) / 86_400);
         LicenseStatus {
             mode: if self.open_mode { "open" } else { "enforced" }.into(),
             state: state.into(),
@@ -794,9 +798,7 @@ mod tests {
     #[test]
     fn past_license_expires_at_is_rejected() {
         let manager = fixture_manager();
-        let token = mutated(|payload| {
-            payload.license_expires_at = Some(now_ts() - 60)
-        });
+        let token = mutated(|payload| payload.license_expires_at = Some(now_ts() - 60));
         assert!(matches!(
             manager.verify_token(&token),
             Err(LicenseError::LicenseExpired)

@@ -702,10 +702,7 @@ fn license_state(state: State<'_, AppState>) -> LicenseStatus {
 }
 
 #[tauri::command]
-async fn license_link_code(
-    state: State<'_, AppState>,
-    code: String,
-) -> CoreResult<LicenseStatus> {
+async fn license_link_code(state: State<'_, AppState>, code: String) -> CoreResult<LicenseStatus> {
     let status = state.license.link_code(&code).await?;
     let settings = state.db.get_settings()?;
     state.local_api.reconfigure(&settings);
@@ -713,7 +710,10 @@ async fn license_link_code(
         &state,
         "info",
         "license",
-        &format!("License linked ({})", status.license_id.clone().unwrap_or_default()),
+        &format!(
+            "License linked ({})",
+            status.license_id.clone().unwrap_or_default()
+        ),
     );
     Ok(status)
 }
@@ -1361,7 +1361,8 @@ pub fn run() {
             license_state,
             license_link_code,
             license_refresh,
-            license_unlink,            list_storyboards,
+            license_unlink,
+            list_storyboards,
             get_storyboard,
             create_storyboard,
             update_storyboard,
