@@ -35,6 +35,7 @@ import {
   Textarea,
   cn,
 } from "../components/ui";
+import { translate, useI18n } from "../i18n";
 import { api, toApiError } from "../lib/api";
 import { relativeTime } from "../lib/format";
 import { setBeforeNavigate } from "../lib/router";
@@ -53,6 +54,7 @@ import type { Scene, Shot, Storyboard, StoryboardInput } from "../lib/types";
 const ASPECT_RATIOS = ["16:9", "9:16", "1:1", "4:5", "21:9"];
 
 export function StoryboardsPage() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const toast = useToast();
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -83,7 +85,7 @@ export function StoryboardsPage() {
 
   function selectStoryboard(id: string) {
     if (id === selectedId) return;
-    if (dirty && !window.confirm("This storyboard has unsaved changes. Discard them?")) return;
+    if (dirty && !window.confirm(translate("storyboards.dirtyGuard", "This storyboard has unsaved changes. Discard them?"))) return;
     setDirty(false);
     setSelectedId(id);
   }
@@ -100,42 +102,54 @@ export function StoryboardsPage() {
   const create = useMutation({
     mutationFn: (input: StoryboardInput) => api.createStoryboard(input),
     onSuccess: (storyboard) => {
-      toast.success("Storyboard created", "Start adding scenes, prompts, and voiceover.");
+      toast.success(
+        t("storyboards.createdToastTitle", "Storyboard created"),
+        t("storyboards.createdToastBody", "Start adding scenes, prompts, and voiceover."),
+      );
       setCreateOpen(false);
       refresh(storyboard);
     },
-    onError: (error) => toast.error("Could not create storyboard", toApiError(error).message),
+    onError: (error) => toast.error(t("storyboards.createError", "Could not create storyboard"), toApiError(error).message),
   });
 
   const remove = useMutation({
     mutationFn: (id: string) => api.deleteStoryboard(id),
     onSuccess: () => {
-      toast.success("Storyboard deleted", "Its generated voiceover files remain on disk.");
+      toast.success(
+        t("storyboards.deletedToastTitle", "Storyboard deleted"),
+        t("storyboards.deletedToastBody", "Its generated voiceover files remain on disk."),
+      );
       setSelectedId(null);
       setDirty(false);
       refresh();
     },
-    onError: (error) => toast.error("Could not delete storyboard", toApiError(error).message),
+    onError: (error) => toast.error(t("storyboards.deleteError", "Could not delete storyboard"), toApiError(error).message),
   });
 
   const duplicate = useMutation({
     mutationFn: (id: string) => api.duplicateStoryboard(id),
     onSuccess: (storyboard) => {
-      toast.success("Storyboard duplicated", "The copy is independent and ready to edit.");
+      toast.success(
+        t("storyboards.duplicatedToastTitle", "Storyboard duplicated"),
+        t("storyboards.duplicatedToastBody", "The copy is independent and ready to edit."),
+      );
       refresh(storyboard);
     },
-    onError: (error) => toast.error("Could not duplicate storyboard", toApiError(error).message),
+    onError: (error) => toast.error(t("storyboards.duplicateError", "Could not duplicate storyboard"), toApiError(error).message),
   });
 
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Native studio"
-        title="Storyboards"
-        description="Shape a video from scene to shot. Every prompt, camera note, and voiceover line is stored locally in your own library."
+        eyebrow={t("storyboards.eyebrow", "Native studio")}
+        title={t("storyboards.title", "Storyboards")}
+        description={t(
+          "storyboards.description",
+          "Shape a video from scene to shot. Every prompt, camera note, and voiceover line is stored locally in your own library.",
+        )}
         actions={
           <Button variant="primary" icon={<Plus size={15} />} onClick={() => setCreateOpen(true)}>
-            New storyboard
+            {t("storyboards.newStoryboard", "New storyboard")}
           </Button>
         }
       />
@@ -149,15 +163,15 @@ export function StoryboardsPage() {
                 <Input
                   value={search}
                   onChange={(event) => setSearch(event.target.value)}
-                  placeholder="Find a storyboard…"
+                  placeholder={t("storyboards.searchPlaceholder", "Find a storyboard…")}
                   className="pl-9"
-                  aria-label="Search storyboards"
+                  aria-label={t("storyboards.searchAria", "Search storyboards")}
                 />
               </label>
             </div>
             {list.isLoading ? (
               <div className="flex items-center justify-center p-8 text-xs text-muted">
-                <Loader2 size={14} className="mr-2 animate-spin text-accent" /> Loading library…
+                <Loader2 size={14} className="mr-2 animate-spin text-accent" /> {t("storyboards.loadingLibrary", "Loading library…")}
               </div>
             ) : list.isError ? (
               <div className="p-4 text-xs leading-5 text-danger">{list.error.message}</div>
@@ -165,12 +179,12 @@ export function StoryboardsPage() {
               <div className="p-5">
                 <p className="text-xs leading-5 text-muted">
                   {list.data?.length === 0
-                    ? "Your studio is empty. Create a storyboard to begin."
-                    : "No storyboard matches this search."}
+                    ? t("storyboards.emptyLibrary", "Your studio is empty. Create a storyboard to begin.")
+                    : t("storyboards.noMatch", "No storyboard matches this search.")}
                 </p>
                 {list.data?.length === 0 ? (
                   <Button className="mt-3" size="sm" variant="secondary" onClick={() => setCreateOpen(true)}>
-                    Create the first one
+                    {t("storyboards.createFirst", "Create the first one")}
                   </Button>
                 ) : null}
               </div>
@@ -203,13 +217,13 @@ export function StoryboardsPage() {
                         <p className="mt-1 line-clamp-2 text-[10.5px] leading-4 text-muted">{item.logline}</p>
                       ) : null}
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[9.5px] text-faint">
-                        <span>{item.sceneCount} scenes</span>
+                        <span>{t("storyboards.sceneCount", "{count} scenes", { count: item.sceneCount })}</span>
                         <span>·</span>
-                        <span>{item.shotCount} shots</span>
+                        <span>{t("storyboards.shotCount", "{count} shots", { count: item.shotCount })}</span>
                         <span>·</span>
                         <span>{formatDuration(item.totalDurationSeconds)}</span>
                       </div>
-                      <p className="mt-1 text-[9.5px] text-faint">Edited {relativeTime(item.updatedAt)}</p>
+                      <p className="mt-1 text-[9.5px] text-faint">{t("storyboards.edited", "Edited {time}", { time: relativeTime(item.updatedAt) })}</p>
                     </button>
                   </li>
                 ))}
@@ -217,7 +231,10 @@ export function StoryboardsPage() {
             )}
           </Card>
           <p className="mt-2 px-1 text-[9.5px] leading-4 text-faint">
-            Storyboards are SQLite-backed. Export a clean Markdown brief or a JSON snapshot at any time.
+            {t(
+              "storyboards.sqliteNote",
+              "Storyboards are SQLite-backed. Export a clean Markdown brief or a JSON snapshot at any time.",
+            )}
           </p>
         </aside>
 
@@ -225,16 +242,16 @@ export function StoryboardsPage() {
           {detail.isLoading && selectedId ? (
             <Card>
               <div className="flex items-center justify-center p-20 text-xs text-muted">
-                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading storyboard…
+                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> {t("storyboards.loadingStoryboard", "Loading storyboard…")}
               </div>
             </Card>
           ) : detail.isError ? (
             <Card className="border-danger/30">
               <div className="p-6">
-                <p className="text-sm font-medium text-fg">Could not open this storyboard</p>
+                <p className="text-sm font-medium text-fg">{t("storyboards.openError", "Could not open this storyboard")}</p>
                 <p className="mt-2 text-xs leading-5 text-muted">{detail.error.message}</p>
                 <Button className="mt-4" variant="secondary" onClick={() => void detail.refetch()}>
-                  Try again
+                  {t("common.retry", "Try again")}
                 </Button>
               </div>
             </Card>
@@ -252,11 +269,14 @@ export function StoryboardsPage() {
             <Card>
               <EmptyState
                 icon={<Clapperboard size={20} />}
-                title="A blank frame is waiting"
-                description="Create a storyboard to sketch scenes, write shots, and attach a voiceover to every scene."
+                title={t("storyboards.emptyTitle", "A blank frame is waiting")}
+                description={t(
+                  "storyboards.emptyDescription",
+                  "Create a storyboard to sketch scenes, write shots, and attach a voiceover to every scene.",
+                )}
                 action={
                   <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
-                    New storyboard
+                    {t("storyboards.newStoryboard", "New storyboard")}
                   </Button>
                 }
               />
@@ -286,6 +306,7 @@ function CreateStoryboardDialog({
   onClose: () => void;
   onCreate: (input: StoryboardInput) => void;
 }) {
+  const { t } = useI18n();
   const [title, setTitle] = useState("");
   const [logline, setLogline] = useState("");
   const [style, setStyle] = useState("Cinematic");
@@ -303,14 +324,14 @@ function CreateStoryboardDialog({
     <Modal
       open={open}
       onClose={busy ? () => undefined : onClose}
-      title="New storyboard"
-      description="Give the piece a working title. You can change everything later."
+      title={t("storyboards.createTitle", "New storyboard")}
+      description={t("storyboards.createDescription", "Give the piece a working title. You can change everything later.")}
       size="md"
       closeOnBackdrop={!busy}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="primary"
@@ -326,40 +347,46 @@ function CreateStoryboardDialog({
               })
             }
           >
-            Create storyboard
+            {t("storyboards.createButton", "Create storyboard")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Title">
+        <Field label={t("storyboards.fieldTitle", "Title")}>
           <Input
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            placeholder="The last light over Banten"
+            placeholder={t("storyboards.titlePlaceholder", "The last light over Banten")}
             autoFocus
             maxLength={120}
           />
         </Field>
-        <Field label="Logline" hint="One or two sentences that keep the edit focused.">
+        <Field
+          label={t("storyboards.fieldLogline", "Logline")}
+          hint={t("storyboards.loglineHint", "One or two sentences that keep the edit focused.")}
+        >
           <Textarea
             value={logline}
             onChange={(event) => setLogline(event.target.value)}
             rows={3}
             maxLength={500}
-            placeholder="A courier crosses the coast before sunset to deliver a message that changes everything."
+            placeholder={t(
+              "storyboards.loglinePlaceholder",
+              "A courier crosses the coast before sunset to deliver a message that changes everything.",
+            )}
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Visual style">
+          <Field label={t("storyboards.fieldStyle", "Visual style")}>
             <Input
               value={style}
               onChange={(event) => setStyle(event.target.value)}
               maxLength={120}
-              placeholder="Warm cinematic"
+              placeholder={t("storyboards.stylePlaceholder", "Warm cinematic")}
             />
           </Field>
-          <Field label="Aspect ratio">
+          <Field label={t("storyboards.fieldAspectRatio", "Aspect ratio")}>
             <Select value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)}>
               {ASPECT_RATIOS.map((ratio) => (
                 <option key={ratio} value={ratio}>
@@ -389,6 +416,7 @@ function StoryboardEditor({
   onDirtyChange: (dirty: boolean) => void;
   busy: boolean;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const [draft, setDraft] = useState<StoryboardDraft>(() => storyboardToInput(storyboard));
   const [dirty, setDirty] = useState(false);
@@ -413,7 +441,7 @@ function StoryboardEditor({
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
-    setBeforeNavigate(() => window.confirm("Discard unsaved storyboard changes?"));
+    setBeforeNavigate(() => window.confirm(translate("storyboards.navigateDirtyGuard", "Discard unsaved storyboard changes?")));
     return () => {
       window.removeEventListener("beforeunload", warn);
       setBeforeNavigate(null);
@@ -425,10 +453,13 @@ function StoryboardEditor({
     onSuccess: (saved) => {
       setDraft(storyboardToInput(saved));
       setDirty(false);
-      toast.success("Storyboard saved", "Scenes and voiceover notes are stored locally.");
+      toast.success(
+        t("storyboards.saveToastTitle", "Storyboard saved"),
+        t("storyboards.saveToastBody", "Scenes and voiceover notes are stored locally."),
+      );
       onSaved(saved);
     },
-    onError: (error) => toast.error("Could not save storyboard", toApiError(error).message),
+    onError: (error) => toast.error(t("storyboards.saveError", "Could not save storyboard"), toApiError(error).message),
   });
 
   function patch(next: Partial<StoryboardDraft>) {
@@ -503,7 +534,9 @@ function StoryboardEditor({
         defaultPath: `${slugify(saved.title)}.${extension}`,
         filters: [
           {
-            name: format === "json" ? "Storyboard JSON" : "Storyboard brief",
+            name: format === "json"
+              ? t("storyboards.filterJson", "Storyboard JSON")
+              : t("storyboards.filterBrief", "Storyboard brief"),
             extensions: [extension],
           },
         ],
@@ -511,9 +544,14 @@ function StoryboardEditor({
       if (!path) return;
       await api.exportStoryboard(saved.id, path, format);
       setExportOpen(false);
-      toast.success("Storyboard exported", format === "json" ? "JSON snapshot written." : "Markdown brief written.");
+      toast.success(
+        t("storyboards.exportedToastTitle", "Storyboard exported"),
+        format === "json"
+          ? t("storyboards.exportedJsonToast", "JSON snapshot written.")
+          : t("storyboards.exportedMarkdownToast", "Markdown brief written."),
+      );
     } catch (error) {
-      toast.error("Could not export storyboard", toApiError(error).message);
+      toast.error(t("storyboards.exportError", "Could not export storyboard"), toApiError(error).message);
     } finally {
       setExporting(null);
     }
@@ -525,19 +563,19 @@ function StoryboardEditor({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line/70 px-5 py-4">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <SectionLabel>Storyboard</SectionLabel>
+              <SectionLabel>{t("storyboards.sectionLabel", "Storyboard")}</SectionLabel>
               <Badge tone={dirty ? "warning" : "success"} dot>
-                {dirty ? "Unsaved" : "Saved"}
+                {dirty ? t("storyboards.unsaved", "Unsaved") : t("storyboards.saved", "Saved")}
               </Badge>
             </div>
             <h2 className="mt-1 line-clamp-2 text-lg font-semibold tracking-[-0.01em] text-fg">
-              {draft.title || "Untitled storyboard"}
+              {draft.title || t("storyboards.untitled", "Untitled storyboard")}
             </h2>
             <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-faint">
-              <span>{counts.scenes} scenes</span>
-              <span>{counts.shots} shots</span>
+              <span>{t("storyboards.sceneCount", "{count} scenes", { count: counts.scenes })}</span>
+              <span>{t("storyboards.shotCount", "{count} shots", { count: counts.shots })}</span>
               <span>{formatDuration(counts.durationSeconds)}</span>
-              <span>Aspect {draft.aspectRatio}</span>
+              <span>{t("storyboards.aspect", "Aspect {ratio}", { ratio: draft.aspectRatio })}</span>
             </div>
           </div>
           <div className="flex flex-wrap items-center gap-1.5">
@@ -549,22 +587,22 @@ function StoryboardEditor({
               disabled={!dirty}
               onClick={() => saveMutation.mutate()}
             >
-              Save
+              {t("common.save", "Save")}
             </Button>
-            <IconButton label="Duplicate storyboard" size="sm" onClick={onDuplicated} disabled={busy}>
+            <IconButton label={t("storyboards.duplicateAria", "Duplicate storyboard")} size="sm" onClick={onDuplicated} disabled={busy}>
               <Copy size={14} />
             </IconButton>
-            <IconButton label="Export storyboard" size="sm" onClick={() => setExportOpen(true)}>
+            <IconButton label={t("storyboards.exportAria", "Export storyboard")} size="sm" onClick={() => setExportOpen(true)}>
               <Download size={14} />
             </IconButton>
-            <IconButton label="Delete storyboard" size="sm" onClick={() => setDeleteOpen(true)} disabled={busy}>
+            <IconButton label={t("storyboards.deleteAria", "Delete storyboard")} size="sm" onClick={() => setDeleteOpen(true)} disabled={busy}>
               <Trash2 size={14} className="text-danger" />
             </IconButton>
           </div>
         </div>
 
         <div className="grid gap-4 p-5 lg:grid-cols-[1.5fr_1fr_130px]">
-          <Field label="Title">
+          <Field label={t("storyboards.fieldTitle", "Title")}>
             <Input
               value={draft.title}
               onChange={(event) => patch({ title: event.target.value })}
@@ -572,14 +610,14 @@ function StoryboardEditor({
               className="text-[15px] font-medium"
             />
           </Field>
-          <Field label="Visual style">
+          <Field label={t("storyboards.fieldStyle", "Visual style")}>
             <Input
               value={draft.style}
               onChange={(event) => patch({ style: event.target.value })}
               maxLength={120}
             />
           </Field>
-          <Field label="Aspect ratio">
+          <Field label={t("storyboards.fieldAspectRatio", "Aspect ratio")}>
             <Select
               value={draft.aspectRatio}
               onChange={(event) => patch({ aspectRatio: event.target.value })}
@@ -592,13 +630,13 @@ function StoryboardEditor({
             </Select>
           </Field>
           <div className="lg:col-span-3">
-            <Field label="Logline" hint={`${draft.logline.length}/500`}>
+            <Field label={t("storyboards.fieldLogline", "Logline")} hint={`${draft.logline.length}/500`}>
               <Textarea
                 value={draft.logline}
                 onChange={(event) => patch({ logline: event.target.value })}
                 rows={2}
                 maxLength={500}
-                placeholder="What changes between the first frame and the last?"
+                placeholder={t("storyboards.loglineEditorPlaceholder", "What changes between the first frame and the last?")}
               />
             </Field>
           </div>
@@ -607,13 +645,13 @@ function StoryboardEditor({
 
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold text-fg">Scenes</h3>
+          <h3 className="text-sm font-semibold text-fg">{t("storyboards.scenesHeading", "Scenes")}</h3>
           <p className="mt-0.5 text-[10.5px] text-muted">
-            Each scene holds shots, camera language, dialogue, and one voiceover script.
+            {t("storyboards.scenesDescription", "Each scene holds shots, camera language, dialogue, and one voiceover script.")}
           </p>
         </div>
         <Button variant="secondary" size="sm" icon={<Plus size={14} />} onClick={addScene}>
-          Add scene
+          {t("storyboards.addScene", "Add scene")}
         </Button>
       </div>
 
@@ -621,11 +659,14 @@ function StoryboardEditor({
         <Card>
           <EmptyState
             icon={<Clapperboard size={18} />}
-            title="No scenes yet"
-            description="Add a scene, then break it into shots. A scene can be as small as one image or as large as a sequence."
+            title={t("storyboards.noScenesTitle", "No scenes yet")}
+            description={t(
+              "storyboards.noScenesDescription",
+              "Add a scene, then break it into shots. A scene can be as small as one image or as large as a sequence.",
+            )}
             action={
               <Button variant="primary" icon={<Plus size={14} />} onClick={addScene}>
-                Add the first scene
+                {t("storyboards.addFirstScene", "Add the first scene")}
               </Button>
             }
           />
@@ -642,13 +683,13 @@ function StoryboardEditor({
                   value={scene.title}
                   onChange={(event) => patchScene(scene.id, { title: event.target.value })}
                   maxLength={160}
-                  aria-label={`Scene ${sceneIndex + 1} title`}
+                  aria-label={t("storyboards.sceneTitleAria", "Scene {index} title", { index: sceneIndex + 1 })}
                   className="h-8 min-w-[150px] flex-1 border-transparent bg-transparent px-2 text-[12.5px] font-medium focus:border-line focus:bg-surface"
-                  placeholder={`Scene ${sceneIndex + 1}`}
+                  placeholder={t("storyboards.scenePlaceholder", "Scene {index}", { index: sceneIndex + 1 })}
                 />
                 <div className="flex items-center gap-0.5">
                   <IconButton
-                    label="Move scene up"
+                    label={t("storyboards.moveSceneUp", "Move scene up")}
                     size="sm"
                     disabled={sceneIndex === 0}
                     onClick={() => moveScene(sceneIndex, -1)}
@@ -656,14 +697,14 @@ function StoryboardEditor({
                     <ArrowUp size={13} />
                   </IconButton>
                   <IconButton
-                    label="Move scene down"
+                    label={t("storyboards.moveSceneDown", "Move scene down")}
                     size="sm"
                     disabled={sceneIndex === draft.scenes.length - 1}
                     onClick={() => moveScene(sceneIndex, 1)}
                   >
                     <ArrowDown size={13} />
                   </IconButton>
-                  <IconButton label="Remove scene" size="sm" onClick={() => removeScene(scene.id)}>
+                  <IconButton label={t("storyboards.removeScene", "Remove scene")} size="sm" onClick={() => removeScene(scene.id)}>
                     <Trash2 size={13} className="text-danger" />
                   </IconButton>
                 </div>
@@ -672,42 +713,42 @@ function StoryboardEditor({
               <div className="space-y-4 p-4">
                 <div className="grid gap-3 md:grid-cols-3">
                   <div className="md:col-span-3">
-                    <Field label="Scene direction">
+                    <Field label={t("storyboards.fieldSceneDirection", "Scene direction")}>
                       <Textarea
                         value={scene.description}
                         onChange={(event) => patchScene(scene.id, { description: event.target.value })}
                         rows={2}
                         maxLength={2000}
-                        placeholder="What the audience sees and feels in this scene."
+                        placeholder={t("storyboards.sceneDirectionPlaceholder", "What the audience sees and feels in this scene.")}
                       />
                     </Field>
                   </div>
-                  <Field label="Location">
+                  <Field label={t("storyboards.fieldLocation", "Location")}>
                     <Input
                       value={scene.location}
                       onChange={(event) => patchScene(scene.id, { location: event.target.value })}
                       maxLength={2000}
-                      placeholder="Harbour at dawn"
+                      placeholder={t("storyboards.locationPlaceholder", "Harbour at dawn")}
                     />
                   </Field>
-                  <Field label="Time of day">
+                  <Field label={t("storyboards.fieldTimeOfDay", "Time of day")}>
                     <Input
                       value={scene.timeOfDay}
                       onChange={(event) => patchScene(scene.id, { timeOfDay: event.target.value })}
                       maxLength={2000}
-                      placeholder="Blue hour"
+                      placeholder={t("storyboards.timeOfDayPlaceholder", "Blue hour")}
                     />
                   </Field>
                   <div className="flex items-end">
-                    <Badge tone="neutral">{scene.shots.length} shots</Badge>
+                    <Badge tone="neutral">{t("storyboards.shotCount", "{count} shots", { count: scene.shots.length })}</Badge>
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-line/75 bg-surface/40 p-3">
                   <div className="flex items-center gap-2">
                     <Mic2 size={14} className="text-accent" />
-                    <span className="text-[11px] font-medium text-fg">Voiceover</span>
-                    <span className="text-[9.5px] text-faint">Optional · one script per scene</span>
+                    <span className="text-[11px] font-medium text-fg">{t("storyboards.voiceoverLabel", "Voiceover")}</span>
+                    <span className="text-[9.5px] text-faint">{t("storyboards.voiceoverHint", "Optional · one script per scene")}</span>
                   </div>
                   <Textarea
                     className="mt-2"
@@ -719,8 +760,8 @@ function StoryboardEditor({
                     }
                     rows={2}
                     maxLength={8000}
-                    placeholder="The line that carries this scene…"
-                    aria-label={`Scene ${sceneIndex + 1} voiceover`}
+                    placeholder={t("storyboards.voiceoverPlaceholder", "The line that carries this scene…")}
+                    aria-label={t("storyboards.voiceoverAria", "Scene {index} voiceover", { index: sceneIndex + 1 })}
                   />
                 </div>
 
@@ -729,11 +770,11 @@ function StoryboardEditor({
                     <div key={shot.id} className="rounded-xl border border-line/75 bg-panel/55 p-3">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className="font-mono text-[9.5px] text-faint">
-                          SHOT {sceneIndex + 1}.{shotIndex + 1}
+                          {t("storyboards.shotLabel", "SHOT {scene}.{shot}", { scene: sceneIndex + 1, shot: shotIndex + 1 })}
                         </span>
                         <div className="ml-auto flex items-center gap-0.5">
                           <IconButton
-                            label="Move shot up"
+                            label={t("storyboards.moveShotUp", "Move shot up")}
                             size="sm"
                             disabled={shotIndex === 0}
                             onClick={() => moveShot(scene.id, shotIndex, -1)}
@@ -741,7 +782,7 @@ function StoryboardEditor({
                             <ArrowUp size={12} />
                           </IconButton>
                           <IconButton
-                            label="Move shot down"
+                            label={t("storyboards.moveShotDown", "Move shot down")}
                             size="sm"
                             disabled={shotIndex === scene.shots.length - 1}
                             onClick={() => moveShot(scene.id, shotIndex, 1)}
@@ -749,7 +790,7 @@ function StoryboardEditor({
                             <ArrowDown size={12} />
                           </IconButton>
                           <IconButton
-                            label="Remove shot"
+                            label={t("storyboards.removeShot", "Remove shot")}
                             size="sm"
                             onClick={() => removeShot(scene.id, shot.id)}
                           >
@@ -758,7 +799,7 @@ function StoryboardEditor({
                         </div>
                       </div>
                       <div className="mt-2 grid gap-3 md:grid-cols-[1fr_110px]">
-                        <Field label="Shot description">
+                        <Field label={t("storyboards.fieldShotDescription", "Shot description")}>
                           <Textarea
                             value={shot.description}
                             onChange={(event) =>
@@ -766,10 +807,13 @@ function StoryboardEditor({
                             }
                             rows={2}
                             maxLength={4000}
-                            placeholder="Close on hands opening the envelope."
+                            placeholder={t("storyboards.shotDescriptionPlaceholder", "Close on hands opening the envelope.")}
                           />
                         </Field>
-                        <Field label="Duration" hint="1–600 sec">
+                        <Field
+                          label={t("storyboards.fieldDuration", "Duration")}
+                          hint={t("storyboards.durationHint", "1–600 sec")}
+                        >
                           <Input
                             type="number"
                             min={1}
@@ -784,7 +828,10 @@ function StoryboardEditor({
                         </Field>
                       </div>
                       <div className="mt-3">
-                        <Field label="Generation prompt" hint="The visual instruction you would paste into a video model.">
+                        <Field
+                          label={t("storyboards.fieldPrompt", "Generation prompt")}
+                          hint={t("storyboards.promptHint", "The visual instruction you would paste into a video model.")}
+                        >
                           <Textarea
                             value={shot.prompt}
                             onChange={(event) =>
@@ -792,39 +839,42 @@ function StoryboardEditor({
                             }
                             rows={3}
                             maxLength={4000}
-                            placeholder="Warm 35mm film, low sun through harbour mist, intimate handheld close-up…"
+                            placeholder={t(
+                              "storyboards.promptPlaceholder",
+                              "Warm 35mm film, low sun through harbour mist, intimate handheld close-up…",
+                            )}
                           />
                         </Field>
                       </div>
                       <div className="mt-3 grid gap-3 md:grid-cols-3">
-                        <Field label="Camera">
+                        <Field label={t("storyboards.fieldCamera", "Camera")}>
                           <Input
                             value={shot.camera}
                             onChange={(event) =>
                               patchShot(scene.id, shot.id, { camera: event.target.value })
                             }
                             maxLength={4000}
-                            placeholder="Slow dolly in"
+                            placeholder={t("storyboards.cameraPlaceholder", "Slow dolly in")}
                           />
                         </Field>
-                        <Field label="Dialogue">
+                        <Field label={t("storyboards.fieldDialogue", "Dialogue")}>
                           <Input
                             value={shot.dialogue}
                             onChange={(event) =>
                               patchShot(scene.id, shot.id, { dialogue: event.target.value })
                             }
                             maxLength={4000}
-                            placeholder="We start here."
+                            placeholder={t("storyboards.dialoguePlaceholder", "We start here.")}
                           />
                         </Field>
-                        <Field label="Transition">
+                        <Field label={t("storyboards.fieldTransition", "Transition")}>
                           <Input
                             value={shot.transition}
                             onChange={(event) =>
                               patchShot(scene.id, shot.id, { transition: event.target.value })
                             }
                             maxLength={4000}
-                            placeholder="Cut"
+                            placeholder={t("storyboards.transitionPlaceholder", "Cut")}
                           />
                         </Field>
                       </div>
@@ -836,7 +886,7 @@ function StoryboardEditor({
                     icon={<Plus size={13} />}
                     onClick={() => addShot(scene.id)}
                   >
-                    Add shot
+                    {t("storyboards.addShot", "Add shot")}
                   </Button>
                 </div>
               </div>
@@ -849,8 +899,8 @@ function StoryboardEditor({
         <div className="flex items-center gap-2.5">
           <Mic2 size={15} className="text-accent" />
           <div>
-            <p className="text-[11.5px] font-medium text-fg">Ready to hear it?</p>
-            <p className="text-[10px] text-muted">Open Voiceover studio to preview or generate scene audio.</p>
+            <p className="text-[11.5px] font-medium text-fg">{t("storyboards.voiceoverCtaTitle", "Ready to hear it?")}</p>
+            <p className="text-[10px] text-muted">{t("storyboards.voiceoverCtaBody", "Open Voiceover studio to preview or generate scene audio.")}</p>
           </div>
         </div>
         <Button
@@ -868,20 +918,23 @@ function StoryboardEditor({
             window.location.hash = "/voiceover";
           }}
         >
-          Open voiceover
+          {t("storyboards.openVoiceover", "Open voiceover")}
         </Button>
       </div>
 
       <ConfirmDialog
         open={deleteOpen}
-        title="Delete storyboard?"
+        title={t("storyboards.deleteConfirmTitle", "Delete storyboard?")}
         description={
           <>
-            <strong className="text-fg">{storyboard.title}</strong> and its scene plan will be removed from this
-            device. Generated audio files stay where they were saved.
+            <strong className="text-fg">{storyboard.title}</strong>{" "}
+            {t(
+              "storyboards.deleteConfirmBody",
+              "and its scene plan will be removed from this device. Generated audio files stay where they were saved.",
+            )}
           </>
         }
-        confirmLabel="Delete storyboard"
+        confirmLabel={t("storyboards.deleteConfirmButton", "Delete storyboard")}
         confirmationLabel={storyboard.title}
         busy={busy}
         onClose={() => setDeleteOpen(false)}
@@ -894,8 +947,11 @@ function StoryboardEditor({
       <Modal
         open={exportOpen}
         onClose={() => setExportOpen(false)}
-        title="Export storyboard"
-        description="Choose a format. A Markdown brief is readable anywhere; JSON preserves the full edit."
+        title={t("storyboards.exportTitle", "Export storyboard")}
+        description={t(
+          "storyboards.exportDescription",
+          "Choose a format. A Markdown brief is readable anywhere; JSON preserves the full edit.",
+        )}
         size="sm"
       >
         <div className="grid gap-2 sm:grid-cols-2">
@@ -906,8 +962,8 @@ function StoryboardEditor({
             onClick={() => void exportStoryboard("markdown")}
           >
             <FileText size={17} className="text-accent" />
-            <p className="mt-2 text-xs font-medium text-fg">Markdown brief</p>
-            <p className="mt-1 text-[10px] leading-4 text-muted">Scenes, shots, prompts, and voiceover in one document.</p>
+            <p className="mt-2 text-xs font-medium text-fg">{t("storyboards.markdownBrief", "Markdown brief")}</p>
+            <p className="mt-1 text-[10px] leading-4 text-muted">{t("storyboards.markdownBriefDesc", "Scenes, shots, prompts, and voiceover in one document.")}</p>
             {exporting === "markdown" ? <Loader2 size={13} className="mt-2 animate-spin text-accent" /> : null}
           </button>
           <button
@@ -917,8 +973,8 @@ function StoryboardEditor({
             onClick={() => void exportStoryboard("json")}
           >
             <FileJson size={17} className="text-info" />
-            <p className="mt-2 text-xs font-medium text-fg">JSON snapshot</p>
-            <p className="mt-1 text-[10px] leading-4 text-muted">A portable backup of the complete storyboard model.</p>
+            <p className="mt-2 text-xs font-medium text-fg">{t("storyboards.jsonSnapshot", "JSON snapshot")}</p>
+            <p className="mt-1 text-[10px] leading-4 text-muted">{t("storyboards.jsonSnapshotDesc", "A portable backup of the complete storyboard model.")}</p>
             {exporting === "json" ? <Loader2 size={13} className="mt-2 animate-spin text-info" /> : null}
           </button>
         </div>

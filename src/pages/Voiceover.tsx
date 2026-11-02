@@ -33,6 +33,7 @@ import {
   Textarea,
   cn,
 } from "../components/ui";
+import { useI18n } from "../i18n";
 import { api, toApiError } from "../lib/api";
 import { formatBytes, relativeTime } from "../lib/format";
 import { navigate, setBeforeNavigate } from "../lib/router";
@@ -40,6 +41,7 @@ import { sceneLabel, slugify, storyboardToInput } from "../lib/studio";
 import type { Scene, Storyboard, Voiceover } from "../lib/types";
 
 export function VoiceoverPage() {
+  const { t } = useI18n();
   const [storyboardId, setStoryboardId] = useState<string | null>(null);
   const [dirty, setDirty] = useState(false);
   const list = useQuery({ queryKey: ["storyboards"], queryFn: api.listStoryboards });
@@ -58,12 +60,15 @@ export function VoiceoverPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Native studio"
-        title="Voiceover studio"
-        description="Preview every scene with the system speech engine, or generate a downloadable voice track through your own OpenAI-compatible TTS provider."
+        eyebrow={t("voiceover.eyebrow", "Native studio")}
+        title={t("voiceover.title", "Voiceover studio")}
+        description={t(
+          "voiceover.description",
+          "Preview every scene with the system speech engine, or generate a downloadable voice track through your own OpenAI-compatible TTS provider.",
+        )}
         actions={
           <Button variant="secondary" icon={<Mic2 size={15} />} onClick={() => navigate("/storyboards")}>
-            Edit storyboards
+            {t("voiceover.editStoryboards", "Edit storyboards")}
           </Button>
         }
       />
@@ -71,7 +76,8 @@ export function VoiceoverPage() {
       {list.isLoading ? (
         <Card className="mt-5">
           <div className="flex items-center justify-center p-16 text-xs text-muted">
-            <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading voiceover projects…
+            <Loader2 size={15} className="mr-2 animate-spin text-accent" />{" "}
+            {t("voiceover.loadingProjects", "Loading voiceover projects…")}
           </div>
         </Card>
       ) : list.isError ? (
@@ -82,11 +88,14 @@ export function VoiceoverPage() {
         <Card className="mt-5">
           <EmptyState
             icon={<Mic2 size={20} />}
-            title="No scenes to voice yet"
-            description="Create a storyboard first. Every scene can carry its own voiceover script, voice, pacing, and generated audio."
+            title={t("voiceover.emptyTitle", "No scenes to voice yet")}
+            description={t(
+              "voiceover.emptyDescription",
+              "Create a storyboard first. Every scene can carry its own voiceover script, voice, pacing, and generated audio.",
+            )}
             action={
               <Button variant="primary" icon={<Plus size={14} />} onClick={() => navigate("/storyboards")}>
-                Create a storyboard
+                {t("voiceover.createStoryboard", "Create a storyboard")}
               </Button>
             }
           />
@@ -97,23 +106,27 @@ export function VoiceoverPage() {
             <div className="flex flex-wrap items-center gap-3">
               <div className="min-w-0 flex-1">
                 <label className="mb-1 block text-[9px] font-semibold uppercase tracking-[0.14em] text-faint">
-                  Storyboard
+                  {t("voiceover.storyboardLabel", "Storyboard")}
                 </label>
                 <Select
                   value={storyboardId ?? ""}
                   onChange={(event) => {
                     const next = event.target.value || null;
-                    if (dirty && next !== storyboardId && !window.confirm("Discard unsaved voiceover changes?")) {
+                    if (
+                      dirty &&
+                      next !== storyboardId &&
+                      !window.confirm(t("voiceover.discardConfirm", "Discard unsaved voiceover changes?"))
+                    ) {
                       return;
                     }
                     setDirty(false);
                     setStoryboardId(next);
                   }}
-                  aria-label="Choose storyboard"
+                  aria-label={t("voiceover.chooseStoryboard", "Choose storyboard")}
                 >
                   {(list.data ?? []).map((item) => (
                     <option key={item.id} value={item.id}>
-                      {item.title} · {item.sceneCount} scenes
+                      {item.title} · {t("voiceover.sceneCount", "{count} scenes", { count: item.sceneCount })}
                     </option>
                   ))}
                 </Select>
@@ -122,7 +135,9 @@ export function VoiceoverPage() {
                 <div className="flex flex-wrap gap-2 text-[10px] text-faint">
                   <Badge tone="neutral">{detail.data.style}</Badge>
                   <Badge tone="neutral">{detail.data.aspectRatio}</Badge>
-                  <Badge tone="neutral">{detail.data.scenes.length} scenes</Badge>
+                  <Badge tone="neutral">
+                    {t("voiceover.sceneCount", "{count} scenes", { count: detail.data.scenes.length })}
+                  </Badge>
                 </div>
               ) : null}
             </div>
@@ -131,7 +146,7 @@ export function VoiceoverPage() {
           {detail.isLoading ? (
             <Card>
               <div className="flex items-center justify-center p-16 text-xs text-muted">
-                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading scenes…
+                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> {t("voiceover.loadingScenes", "Loading scenes…")}
               </div>
             </Card>
           ) : detail.isError ? (
@@ -158,6 +173,7 @@ function VoiceoverWorkspace({
   storyboard: Storyboard;
   onDirtyChange: (dirty: boolean) => void;
 }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const toast = useToast();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
@@ -221,7 +237,7 @@ function VoiceoverWorkspace({
       event.returnValue = "";
     };
     window.addEventListener("beforeunload", warn);
-    setBeforeNavigate(() => window.confirm("Discard unsaved voiceover changes?"));
+    setBeforeNavigate(() => window.confirm(t("voiceover.discardConfirm", "Discard unsaved voiceover changes?")));
     return () => {
       window.removeEventListener("beforeunload", warn);
       setBeforeNavigate(null);
@@ -250,12 +266,21 @@ function VoiceoverWorkspace({
 
   function speak() {
     if (!supported) {
-      toast.error("System speech is unavailable", "Use provider generation to create an audio file instead.");
+      toast.error(
+        t("voiceover.speechUnavailable", "System speech is unavailable"),
+        t(
+          "voiceover.speechUnavailableDetail",
+          "Use provider generation to create an audio file instead.",
+        ),
+      );
       return;
     }
     const text = voiceover?.text.trim();
     if (!text) {
-      toast.error("Nothing to preview", "Write a voiceover line for this scene first.");
+      toast.error(
+        t("voiceover.nothingToPreview", "Nothing to preview"),
+        t("voiceover.needLineDetail", "Write a voiceover line for this scene first."),
+      );
       return;
     }
     stopSpeaking();
@@ -288,7 +313,13 @@ function VoiceoverWorkspace({
       setSpeaking(false);
       setPaused(false);
       if (!cancelled) {
-        toast.error("Preview stopped", "The system speech engine could not finish this line.");
+        toast.error(
+          t("voiceover.previewStopped", "Preview stopped"),
+          t(
+            "voiceover.previewStoppedDetail",
+            "The system speech engine could not finish this line.",
+          ),
+        );
       }
     };
     utteranceRef.current = utterance;
@@ -317,21 +348,37 @@ function VoiceoverWorkspace({
     onSuccess: (saved) => {
       setScenes(saved.scenes);
       setDirty(false);
-      toast.success("Voiceover saved", "The script and voice settings are stored with the storyboard.");
+      toast.success(
+        t("voiceover.savedToast", "Voiceover saved"),
+        t(
+          "voiceover.savedToastDetail",
+          "The script and voice settings are stored with the storyboard.",
+        ),
+      );
       void queryClient.invalidateQueries({ queryKey: ["storyboards"] });
       void queryClient.invalidateQueries({ queryKey: ["storyboard", saved.id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (error) => toast.error("Could not save voiceover", toApiError(error).message),
+    onError: (error) =>
+      toast.error(t("voiceover.saveFailedToast", "Could not save voiceover"), toApiError(error).message),
   });
 
   async function generateAudio() {
     if (!selectedScene || !voiceover?.text.trim()) {
-      toast.error("Nothing to generate", "Write a voiceover line for this scene first.");
+      toast.error(
+        t("voiceover.nothingToGenerate", "Nothing to generate"),
+        t("voiceover.needLineDetail", "Write a voiceover line for this scene first."),
+      );
       return;
     }
     if (!hasTtsKey) {
-      toast.error("TTS provider is not configured", "Add a tts.api_key or ai.api_key secret in Settings.");
+      toast.error(
+        t("voiceover.ttsNotConfigured", "TTS provider is not configured"),
+        t(
+          "voiceover.ttsNotConfiguredDetail",
+          "Add a tts.api_key or ai.api_key secret in Settings.",
+        ),
+      );
       return;
     }
     setGenerating(true);
@@ -347,7 +394,12 @@ function VoiceoverWorkspace({
       const format = settings.data?.ttsFormat ?? "mp3";
       const path = await save({
         defaultPath: `${slugify(selectedScene.title || storyboard.title, "voiceover")}.${format}`,
-        filters: [{ name: `${format.toUpperCase()} audio`, extensions: [format] }],
+        filters: [
+          {
+            name: t("voiceover.audioFilter", "{format} audio", { format: format.toUpperCase() }),
+            extensions: [format],
+          },
+        ],
       });
       if (!path) return;
       const asset = await api.synthesizeVoiceover(
@@ -356,11 +408,16 @@ function VoiceoverWorkspace({
         storyboard.id,
         selectedScene.id,
       );
-      toast.success("Voiceover generated", `${formatBytes(asset.bytes)} written to disk.`);
+      toast.success(
+        t("voiceover.generatedToast", "Voiceover generated"),
+        t("voiceover.generatedToastDetail", "{bytes} written to disk.", {
+          bytes: formatBytes(asset.bytes),
+        }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["voiceover-assets", storyboard.id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     } catch (error) {
-      toast.error("Could not generate voiceover", toApiError(error).message);
+      toast.error(t("voiceover.generateFailedToast", "Could not generate voiceover"), toApiError(error).message);
     } finally {
       setGenerating(false);
     }
@@ -369,11 +426,18 @@ function VoiceoverWorkspace({
   const deleteAsset = useMutation({
     mutationFn: (id: string) => api.deleteVoiceoverAsset(id),
     onSuccess: () => {
-      toast.success("Audio reference removed", "The file itself was left untouched on disk.");
+      toast.success(
+        t("voiceover.assetRemovedToast", "Audio reference removed"),
+        t("voiceover.assetRemovedToastDetail", "The file itself was left untouched on disk."),
+      );
       void queryClient.invalidateQueries({ queryKey: ["voiceover-assets", storyboard.id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (error) => toast.error("Could not remove audio reference", toApiError(error).message),
+    onError: (error) =>
+      toast.error(
+        t("voiceover.assetRemoveFailedToast", "Could not remove audio reference"),
+        toApiError(error).message,
+      ),
   });
 
   return (
@@ -382,12 +446,16 @@ function VoiceoverWorkspace({
         <Card className="overflow-hidden">
           <CardHeader
             title={storyboard.title}
-            description={storyboard.logline || "No logline yet."}
-            actions={<Badge tone={dirty ? "warning" : "success"}>{dirty ? "Unsaved" : "Saved"}</Badge>}
+            description={storyboard.logline || t("voiceover.noLogline", "No logline yet.")}
+            actions={
+              <Badge tone={dirty ? "warning" : "success"}>
+                {dirty ? t("voiceover.unsavedBadge", "Unsaved") : t("voiceover.savedBadge", "Saved")}
+              </Badge>
+            }
           />
           <div className="max-h-[360px] overflow-y-auto border-t border-line/60">
             {scenes.length === 0 ? (
-              <p className="p-4 text-xs text-faint">This storyboard has no scenes.</p>
+              <p className="p-4 text-xs text-faint">{t("voiceover.noScenes", "This storyboard has no scenes.")}</p>
             ) : (
               <ul className="divide-y divide-line/50">
                 {scenes.map((scene, index) => {
@@ -419,7 +487,9 @@ function VoiceoverWorkspace({
                             {sceneLabel(scene, index)}
                           </span>
                           <span className="mt-0.5 block truncate text-[10px] text-muted">
-                            {hasScript ? scene.voiceover.text : "No voiceover script"}
+                            {hasScript
+                              ? scene.voiceover.text
+                              : t("voiceover.noScriptInList", "No voiceover script")}
                           </span>
                         </span>
                         {hasScript ? <Mic2 size={12} className="mt-1 shrink-0 text-accent" /> : null}
@@ -440,18 +510,21 @@ function VoiceoverWorkspace({
               disabled={!dirty}
               onClick={() => saveMutation.mutate()}
             >
-              Save voiceover
+              {t("voiceover.saveVoiceover", "Save voiceover")}
             </Button>
           </div>
         </Card>
 
         <Card>
           <CardHeader
-            title="Generated audio"
-            description="Files created through your TTS provider for this storyboard."
+            title={t("voiceover.generatedAudioTitle", "Generated audio")}
+            description={t(
+              "voiceover.generatedAudioDesc",
+              "Files created through your TTS provider for this storyboard.",
+            )}
             actions={
               <IconButton
-                label="Refresh audio references"
+                label={t("voiceover.refreshAudio", "Refresh audio references")}
                 size="sm"
                 onClick={() => void assets.refetch()}
               >
@@ -460,12 +533,15 @@ function VoiceoverWorkspace({
             }
           />
           {assets.isLoading ? (
-            <div className="p-4 text-xs text-muted">Loading audio references…</div>
+            <div className="p-4 text-xs text-muted">{t("voiceover.loadingAudio", "Loading audio references…")}</div>
           ) : assets.isError ? (
             <div className="p-4 text-xs text-danger">{assets.error.message}</div>
           ) : (assets.data?.length ?? 0) === 0 ? (
             <p className="px-4 py-5 text-xs leading-5 text-faint">
-              No generated audio yet. Provider generation creates a file on disk and keeps a reference here.
+              {t(
+                "voiceover.noAudioYet",
+                "No generated audio yet. Provider generation creates a file on disk and keeps a reference here.",
+              )}
             </p>
           ) : (
             <ul className="divide-y divide-line/50">
@@ -481,21 +557,28 @@ function VoiceoverWorkspace({
                     </p>
                   </div>
                   <IconButton
-                    label="Show audio file in folder"
+                    label={t("voiceover.showInFolder", "Show audio file in folder")}
                     size="sm"
                     onClick={() =>
                       void revealItemInDir(asset.path).catch((cause) =>
-                        toast.error("Unable to show audio file", String(cause)),
+                        toast.error(t("voiceover.showFailedToast", "Unable to show audio file"), String(cause)),
                       )
                     }
                   >
                     <FolderOpen size={12} />
                   </IconButton>
                   <IconButton
-                    label="Remove audio reference"
+                    label={t("voiceover.removeAudioRef", "Remove audio reference")}
                     size="sm"
                     onClick={() => {
-                      if (window.confirm("Remove this audio reference? The file stays on disk.")) {
+                      if (
+                        window.confirm(
+                          t(
+                            "voiceover.removeAudioRefConfirm",
+                            "Remove this audio reference? The file stays on disk.",
+                          ),
+                        )
+                      ) {
                         deleteAsset.mutate(asset.id);
                       }
                     }}
@@ -513,31 +596,38 @@ function VoiceoverWorkspace({
         <Card className="min-w-0">
           <div className="flex flex-wrap items-start justify-between gap-3 border-b border-line/70 px-5 py-4">
             <div>
-              <SectionLabel>Scene {sceneNumber}</SectionLabel>
+              <SectionLabel>{t("voiceover.sceneNumber", "Scene {number}", { number: sceneNumber })}</SectionLabel>
               <h2 className="mt-1 text-lg font-semibold tracking-[-0.01em] text-fg">
                 {sceneLabel(selectedScene, sceneNumber - 1)}
               </h2>
               <p className="mt-1 text-[10.5px] text-muted">
-                {selectedScene.location || "Unspecified location"}
+                {selectedScene.location || t("voiceover.noLocation", "Unspecified location")}
                 {selectedScene.timeOfDay ? ` · ${selectedScene.timeOfDay}` : ""}
               </p>
             </div>
             <Badge tone={voiceover.text.trim() ? "success" : "neutral"} dot>
-              {voiceover.text.trim() ? "Script ready" : "No script"}
+              {voiceover.text.trim()
+                ? t("voiceover.scriptReady", "Script ready")
+                : t("voiceover.noScriptBadge", "No script")}
             </Badge>
           </div>
 
           <div className="space-y-5 p-5">
             <Field
-              label="Voiceover script"
-              hint={`${voiceover.text.length}/8,000 characters · saved with the scene`}
+              label={t("voiceover.scriptLabel", "Voiceover script")}
+              hint={t("voiceover.scriptHint", "{count}/8,000 characters · saved with the scene", {
+                count: voiceover.text.length,
+              })}
             >
               <Textarea
                 value={voiceover.text}
                 onChange={(event) => updateVoiceover({ text: event.target.value })}
                 rows={6}
                 maxLength={8000}
-                placeholder="Write the line exactly as it should be spoken. Keep it short enough to breathe."
+                placeholder={t(
+                  "voiceover.scriptPlaceholder",
+                  "Write the line exactly as it should be spoken. Keep it short enough to breathe.",
+                )}
                 className="text-[13px] leading-6"
               />
             </Field>
@@ -545,20 +635,25 @@ function VoiceoverWorkspace({
             {selectedScene.shots.some((shot) => shot.dialogue.trim()) ? (
               <div className="rounded-lg border border-line/70 bg-surface/50 p-3">
                 <p className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-faint">
-                  Dialogue in this scene
+                  {t("voiceover.dialogueLabel", "Dialogue in this scene")}
                 </p>
                 <ul className="mt-1.5 space-y-1 text-[11px] leading-5 text-muted">
                   {selectedScene.shots
                     .filter((shot) => shot.dialogue.trim())
                     .map((shot, index) => (
                       <li key={shot.id}>
-                        <span className="font-mono text-[9px] text-faint">SHOT {index + 1}</span>{" "}
+                        <span className="font-mono text-[9px] text-faint">
+                          {t("voiceover.shotLabel", "SHOT {number}", { number: index + 1 })}
+                        </span>{" "}
                         {shot.dialogue}
                       </li>
                     ))}
                 </ul>
                 <p className="mt-2 text-[9.5px] text-faint">
-                  Copy a line into the voiceover field to preview it with the controls below.
+                  {t(
+                    "voiceover.dialogueHint",
+                    "Copy a line into the voiceover field to preview it with the controls below.",
+                  )}
                 </p>
               </div>
             ) : null}
@@ -568,27 +663,31 @@ function VoiceoverWorkspace({
                 <div className="flex items-center gap-2">
                   <Volume2 size={15} className="text-accent" />
                   <div>
-                    <p className="text-xs font-medium text-fg">System speech preview</p>
+                    <p className="text-xs font-medium text-fg">
+                      {t("voiceover.previewTitle", "System speech preview")}
+                    </p>
                     <p className="text-[9.5px] text-faint">
-                      Local playback only · no audio file is created
+                      {t("voiceover.previewSubtitle", "Local playback only · no audio file is created")}
                     </p>
                   </div>
                 </div>
                 {!supported ? (
-                  <Badge tone="warning">Unavailable in this webview</Badge>
+                  <Badge tone="warning">{t("voiceover.unsupportedBadge", "Unavailable in this webview")}</Badge>
                 ) : (
-                  <Badge tone="neutral">{voices.length} system voices</Badge>
+                  <Badge tone="neutral">
+                    {t("voiceover.systemVoices", "{count} system voices", { count: voices.length })}
+                  </Badge>
                 )}
               </div>
 
               <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                <Field label="Voice">
+                <Field label={t("voiceover.voiceLabel", "Voice")}>
                   <Select
                     value={voiceover.voice}
                     onChange={(event) => updateVoiceover({ voice: event.target.value })}
                     disabled={!supported || voices.length === 0}
                   >
-                    <option value="">System default</option>
+                    <option value="">{t("voiceover.systemDefaultVoice", "System default")}</option>
                     {voiceGroups.map((voice) => (
                       <option key={`${voice.name}-${voice.lang}`} value={voice.name}>
                         {voice.name} · {voice.lang}
@@ -598,7 +697,7 @@ function VoiceoverWorkspace({
                 </Field>
                 <div className="grid grid-cols-3 gap-2">
                   <SliderField
-                    label="Rate"
+                    label={t("voiceover.rate", "Rate")}
                     value={voiceover.rate}
                     min={0.5}
                     max={2}
@@ -606,7 +705,7 @@ function VoiceoverWorkspace({
                     onChange={(value) => updateVoiceover({ rate: value })}
                   />
                   <SliderField
-                    label="Pitch"
+                    label={t("voiceover.pitch", "Pitch")}
                     value={voiceover.pitch}
                     min={0}
                     max={2}
@@ -614,7 +713,7 @@ function VoiceoverWorkspace({
                     onChange={(value) => updateVoiceover({ pitch: value })}
                   />
                   <SliderField
-                    label="Volume"
+                    label={t("voiceover.volume", "Volume")}
                     value={voiceover.volume}
                     min={0}
                     max={1}
@@ -632,7 +731,7 @@ function VoiceoverWorkspace({
                   disabled={!supported || !voiceover.text.trim() || speaking}
                   onClick={speak}
                 >
-                  Preview
+                  {t("voiceover.previewButton", "Preview")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -641,7 +740,9 @@ function VoiceoverWorkspace({
                   disabled={!speaking}
                   onClick={togglePause}
                 >
-                  {paused ? "Resume" : "Pause"}
+                  {paused
+                    ? t("voiceover.resume", "Resume")
+                    : t("voiceover.pause", "Pause")}
                 </Button>
                 <Button
                   variant="ghost"
@@ -650,12 +751,14 @@ function VoiceoverWorkspace({
                   disabled={!speaking}
                   onClick={stopSpeaking}
                 >
-                  Stop
+                  {t("voiceover.stop", "Stop")}
                 </Button>
                 {speaking ? (
                   <span className="ml-auto inline-flex items-center gap-1.5 self-center text-[10px] text-accent">
                     <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-accent" />
-                    {paused ? "Paused" : "Speaking"}
+                    {paused
+                      ? t("voiceover.pausedStatus", "Paused")
+                      : t("voiceover.speakingStatus", "Speaking")}
                   </span>
                 ) : null}
               </div>
@@ -666,16 +769,26 @@ function VoiceoverWorkspace({
                 <div className="flex items-start gap-2.5">
                   <AudioLines size={16} className="mt-0.5 text-info" />
                   <div>
-                    <p className="text-xs font-medium text-fg">Generate an audio file</p>
+                    <p className="text-xs font-medium text-fg">
+                      {t("voiceover.generateTitle", "Generate an audio file")}
+                    </p>
                     <p className="mt-1 max-w-xl text-[10.5px] leading-5 text-muted">
-                      Uses the OpenAI-compatible endpoint in Settings. The provider must support{" "}
-                      <code className="rounded bg-raised px-1 py-0.5 font-mono text-[9px]">/audio/speech</code>.
-                      You choose the destination file before the provider request.
+                      {t(
+                        "voiceover.generateDesc1",
+                        "Uses the OpenAI-compatible endpoint in Settings. The provider must support",
+                      )}{" "}
+                      <code className="rounded bg-raised px-1 py-0.5 font-mono text-[9px]">/audio/speech</code>
+                      {t(
+                        "voiceover.generateDesc2",
+                        ". You choose the destination file before the provider request.",
+                      )}
                     </p>
                   </div>
                 </div>
                 <Badge tone={hasTtsKey ? "success" : "warning"} dot>
-                  {hasTtsKey ? "Key configured" : "No TTS key"}
+                  {hasTtsKey
+                    ? t("voiceover.keyConfigured", "Key configured")
+                    : t("voiceover.noTtsKey", "No TTS key")}
                 </Badge>
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-2">
@@ -687,14 +800,20 @@ function VoiceoverWorkspace({
                   disabled={!voiceover.text.trim()}
                   onClick={() => void generateAudio()}
                 >
-                  Generate {settings.data?.ttsFormat?.toUpperCase() ?? "MP3"}
+                  {t("voiceover.generateFormat", "Generate {format}", {
+                    format: settings.data?.ttsFormat?.toUpperCase() ?? "MP3",
+                  })}
                 </Button>
                 <Button size="sm" variant="ghost" onClick={() => navigate("/settings?tab=integrations")}>
-                  Configure TTS
+                  {t("voiceover.configureTts", "Configure TTS")}
                 </Button>
                 {!hasTtsKey ? (
                   <span className="inline-flex items-center gap-1 text-[9.5px] text-warn">
-                    <AlertTriangle size={10} /> Add a secret named tts.api_key or ai.api_key.
+                    <AlertTriangle size={10} />{" "}
+                    {t(
+                      "voiceover.addSecretHint",
+                      "Add a secret named tts.api_key or ai.api_key.",
+                    )}
                   </span>
                 ) : null}
               </div>
@@ -705,8 +824,11 @@ function VoiceoverWorkspace({
         <Card>
           <EmptyState
             icon={<Mic2 size={18} />}
-            title="Select a scene"
-            description="Choose a scene from the left to write and preview its voiceover."
+            title={t("voiceover.selectSceneTitle", "Select a scene")}
+            description={t(
+              "voiceover.selectSceneDesc",
+              "Choose a scene from the left to write and preview its voiceover.",
+            )}
           />
         </Card>
       )}

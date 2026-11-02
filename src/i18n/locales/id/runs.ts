@@ -1,0 +1,92 @@
+const runs: Record<string, string> = {
+  // Runs page
+  "runs.eyebrow": "Eksekusi",
+  "runs.title": "Riwayat eksekusi",
+  "runs.description":
+    "Eksekusi tersimpan dari run manual, terjadwal, dan yang dijalankan ulang. Output setiap langkah direkam per node dan tetap tersedia setelah aplikasi dimulai ulang.",
+  "runs.cancellationRequested": "Permintaan pembatalan dikirim",
+  "runs.alreadyFinished": "Eksekusi sudah selesai",
+  "runs.runToken": "Eksekusi {id}",
+  "runs.unableToCancel": "Tidak dapat membatalkan eksekusi",
+  "runs.executions": "Eksekusi",
+  "runs.executionsDesc": "Terbaru di atas. Klik salah satu eksekusi untuk memeriksa langkah, input, output, dan status pembatalan.",
+  "runs.filterByStatus": "Filter menurut status eksekusi",
+  "runs.allStatuses": "Semua status",
+  "runs.filterByWorkflow": "Filter menurut workflow",
+  "runs.allWorkflows": "Semua workflow",
+  "runs.clear": "Bersihkan",
+  "runs.noRunsFiltered": "Tidak ada eksekusi yang cocok dengan filter ini",
+  "runs.noRunsFilteredDesc":
+    "Ubah filter status atau workflow. Eksekusi lama tetap tersimpan terlepas dari filter yang aktif.",
+  "runs.noRuns": "Belum ada eksekusi tercatat",
+  "runs.noRunsDesc":
+    "Jalankan workflow secara manual atau aktifkan jadwal. Eksekusi yang masuk antrean maupun selesai akan tampil di sini beserta riwayat langkahnya.",
+  "runs.clearFilters": "Hapus filter",
+  "runs.openWorkflows": "Buka otomasi",
+  "runs.page": "Halaman {page}",
+  "runs.refreshing": "menyegarkan",
+  "runs.previous": "Sebelumnya",
+  "runs.next": "Berikutnya",
+  "runs.autoRefresh": "Pembaruan otomatis 4 dtk",
+  "runs.workerNote":
+    "Eksekusi dijalankan oleh worker di latar belakang; menutup jendela tidak menandai eksekusi aktif sebagai berhasil.",
+
+  // RunTable
+  "runs.workflow": "Workflow",
+  "runs.trigger": "Pemicu",
+  "runs.queued": "Antrean",
+  "runs.duration": "Durasi",
+  "runs.steps": "Langkah",
+  "runs.view": "Lihat",
+
+  // RunDetailDialog
+  "runs.detailTitle": "{name} · eksekusi",
+  "runs.details": "Detail eksekusi",
+  "runs.attempt": "percobaan {attempt}",
+  "runs.cancelRun": "Batalkan eksekusi",
+  "runs.runAgain": "Jalankan lagi",
+  "runs.loadingRun": "Memuat eksekusi…",
+  "runs.cancelRequested": "Pembatalan diminta",
+  "runs.started": "Dimulai",
+  "runs.notStarted": "Belum dimulai",
+  "runs.finished": "Selesai",
+  "runs.inProgress": "Sedang berjalan",
+  "runs.progress": "Progres",
+  "runs.stepsCount": "{completed} / {total} langkah",
+  "runs.runError": "Kesalahan eksekusi",
+  "runs.stepTimeline": "Linimasa langkah",
+  "runs.records": "{count} catatan",
+  "runs.noSteps": "Belum ada langkah yang tercatat.",
+  "runs.input": "Input",
+  "runs.output": "Output",
+  "runs.copyOutput": "Salin output",
+  "runs.noOutput": "Tidak ada output yang tercatat.",
+  "runs.retryQueued": "Eksekusi ulang masuk antrean",
+  "runs.retryQueuedBody": "Eksekusi baru {id} menunggu worker yang tersedia.",
+  "runs.unableToRetry": "Tidak dapat mengeksekusi ulang",
+  "runs.clipboardUnavailable": "Papan klip tidak tersedia",
+
+  // RunWorkflowDialog
+  "runs.workflowTitle": "Jalankan “{name}”",
+  "runs.runWorkflow": "Jalankan workflow",
+  "runs.workflowDialogDesc":
+    "Eksekusi dimasukkan ke antrean lokal dan dijalankan oleh engine di latar belakang. Secret hanya diselesaikan di dalam engine.",
+  "runs.queueRun": "Antrekan eksekusi",
+  "runs.runInput": "Input eksekusi",
+  "runs.runInputHint": "Berikan nilai JSON. Gunakan {{input.name}} di template untuk merujuk field.",
+  "runs.invalidJson": "JSON tidak valid: {error}",
+  "runs.invalidJsonThrow": "Input bukan JSON yang valid: {error}",
+  "runs.runInputAria": "JSON input eksekusi",
+  "runs.idempotencyKey": "Kunci idempotensi",
+  "runs.hide": "Sembunyikan",
+  "runs.show": "Tampilkan",
+  "runs.newKey": "Baru",
+  "runs.idempotencyHint":
+    "Selama ada eksekusi dengan kunci ini yang masih dalam antrean atau berjalan, pengiriman kedua akan ditolak. Biarkan kosong untuk mengizinkan duplikat.",
+  "runs.previewInput": "Pratinjau input ternormalisasi",
+  "runs.runQueued": "Eksekusi masuk antrean",
+  "runs.runQueuedBody": "{name} menunggu worker yang tersedia.",
+  "runs.unableToStart": "Tidak dapat memulai eksekusi",
+};
+
+export default runs;

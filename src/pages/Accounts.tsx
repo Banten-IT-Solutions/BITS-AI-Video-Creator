@@ -34,8 +34,9 @@ import {
   Textarea,
   Toggle,
 } from "../components/ui";
+import { translate, useI18n } from "../i18n";
 import { api, toApiError } from "../lib/api";
-import { formatBytes, formatDateTime, relativeTime } from "../lib/format";
+import { formatBytes, formatDateTime, humanStatus, relativeTime } from "../lib/format";
 import { isAndroid } from "../lib/platform";
 import { navigate } from "../lib/router";
 import type {
@@ -83,6 +84,7 @@ function AccountFormModal({
 }) {
   const toast = useToast();
   const queryClient = useQueryClient();
+  const { t } = useI18n();
   const [provider, setProvider] = useState("google-flow");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
@@ -108,7 +110,7 @@ function AccountFormModal({
 
   const save = useMutation({
     mutationFn: async () => {
-      if (name.trim().length === 0) throw new Error("Enter an account name");
+      if (name.trim().length === 0) throw new Error(translate("accounts.nameRequired", "Enter an account name"));
       const input: AccountInput = {
         provider,
         name: name.trim(),
@@ -122,7 +124,7 @@ function AccountFormModal({
       return account ? api.updateAccount(account.id, input) : api.createAccount(input);
     },
     onSuccess: (saved) => {
-      toast.success(account ? "Account updated" : "Account added", saved.name);
+      toast.success(account ? t("accounts.updated", "Account updated") : t("accounts.added", "Account added"), saved.name);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["account", saved.id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -141,21 +143,31 @@ function AccountFormModal({
       onClose={save.isPending ? () => undefined : onClose}
       closeOnBackdrop={!save.isPending}
       size="lg"
-      title={account ? "Edit account" : "Add provider account"}
-      description="BITS AI Video Creator stores account metadata locally. Sign-in happens inside an isolated provider webview."
+      title={account ? t("accounts.editTitle", "Edit account") : t("accounts.addTitle", "Add provider account")}
+      description={t(
+        "accounts.modalDescription",
+        "BITS AI Video Creator stores account metadata locally. Sign-in happens inside an isolated provider webview.",
+      )}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={save.isPending}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button variant="primary" onClick={() => save.mutate()} loading={save.isPending}>
-            {account ? "Save changes" : "Add account"}
+            {account ? t("accounts.saveChanges", "Save changes") : t("accounts.addAccount", "Add account")}
           </Button>
         </>
       }
     >
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Provider" hint={account ? "Provider cannot change after creation; the isolated profile is tied to it." : "Each provider uses its own isolated sign-in profile."}>
+        <Field
+          label={t("accounts.providerLabel", "Provider")}
+          hint={
+            account
+              ? t("accounts.providerEditHint", "Provider cannot change after creation; the isolated profile is tied to it.")
+              : t("accounts.providerCreateHint", "Each provider uses its own isolated sign-in profile.")
+          }
+        >
           <Select value={provider} onChange={(event) => setProvider(event.target.value)} disabled={Boolean(account)}>
             {providers.map((item) => (
               <option key={item.id} value={item.id}>
@@ -164,25 +176,25 @@ function AccountFormModal({
             ))}
           </Select>
         </Field>
-        <Field label="Status">
+        <Field label={t("common.status", "Status")}>
           <Select value={status} onChange={(event) => setStatus(event.target.value as AccountStatus)}>
             {STATUS_OPTIONS.map((item) => (
               <option key={item} value={item}>
-                {item.replace(/_/g, " ")}
+                {humanStatus(item)}
               </option>
             ))}
           </Select>
         </Field>
-        <Field label="Account name" className="sm:col-span-2">
+        <Field label={t("accounts.nameLabel", "Account name")} className="sm:col-span-2">
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Work Google Flow"
+            placeholder={t("accounts.namePlaceholder", "Work Google Flow")}
             maxLength={80}
             autoFocus
           />
         </Field>
-        <Field label="Email" optional>
+        <Field label={t("accounts.emailLabel", "Email")} optional>
           <Input
             type="email"
             value={email}
@@ -191,18 +203,36 @@ function AccountFormModal({
             maxLength={254}
           />
         </Field>
-        <Field label="Provider account id" optional hint="Stored as metadata only; never used as a password.">
+        <Field
+          label={t("accounts.externalIdLabel", "Provider account id")}
+          optional
+          hint={t("accounts.externalIdHint", "Stored as metadata only; never used as a password.")}
+        >
           <Input
             value={externalId}
             onChange={(event) => setExternalId(event.target.value)}
-            placeholder="Optional external id"
+            placeholder={t("accounts.externalIdPlaceholder", "Optional external id")}
             maxLength={200}
           />
         </Field>
-        <Field label="Tags" optional hint="Comma separated, up to 20 tags." className="sm:col-span-2">
-          <Input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="production, marketing" />
+        <Field
+          label={t("accounts.tagsLabel", "Tags")}
+          optional
+          hint={t("accounts.tagsHint", "Comma separated, up to 20 tags.")}
+          className="sm:col-span-2"
+        >
+          <Input
+            value={tags}
+            onChange={(event) => setTags(event.target.value)}
+            placeholder={t("accounts.tagsPlaceholder", "production, marketing")}
+          />
         </Field>
-        <Field label="Notes" optional className="sm:col-span-2" hint={`${notes.length}/2000 characters`}>
+        <Field
+          label={t("accounts.notesLabel", "Notes")}
+          optional
+          className="sm:col-span-2"
+          hint={t("accounts.notesHint", "{count}/2000 characters", { count: notes.length })}
+        >
           <Textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} maxLength={2000} />
         </Field>
       </div>
@@ -210,8 +240,8 @@ function AccountFormModal({
         <Toggle
           checked={favorite}
           onChange={setFavorite}
-          label="Pin to the top of the account list"
-          description="Favorites sort before other accounts."
+          label={t("accounts.pinLabel", "Pin to the top of the account list")}
+          description={t("accounts.pinDescription", "Favorites sort before other accounts.")}
         />
       </div>
       {error ? (
@@ -233,6 +263,7 @@ function SessionPanel({
   onClose: () => void;
 }) {
   const toast = useToast();
+  const { t } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -256,7 +287,7 @@ function SessionPanel({
       const bounds = measure();
       if (!bounds) {
         setBusy(false);
-        setError("The session area is too small. Enlarge the window and try again.");
+        setError(t("accounts.sessionTooSmall", "The session area is too small. Enlarge the window and try again."));
         return;
       }
       api
@@ -278,7 +309,7 @@ function SessionPanel({
       cancelled = true;
       cancelAnimationFrame(frame);
     };
-  }, [account.id, measure]);
+  }, [account.id, measure, t]);
 
   // Close the provider webview only when the panel unmounts. Closing it on
   // every account-id change races the next open and can close the new view.
@@ -316,9 +347,9 @@ function SessionPanel({
     setBusy(true);
     try {
       await api.reloadProviderView();
-      toast.info("Provider view reloaded");
+      toast.info(t("accounts.viewReloaded", "Provider view reloaded"));
     } catch (cause) {
-      toast.error("Unable to reload provider view", toApiError(cause).message);
+      toast.error(t("accounts.viewReloadFailed", "Unable to reload provider view"), toApiError(cause).message);
     } finally {
       setBusy(false);
     }
@@ -330,16 +361,16 @@ function SessionPanel({
         <div className="flex min-w-0 items-center gap-2 text-[11px] text-muted">
           <ShieldCheck size={14} className="text-accent" />
           <span className="truncate">
-            Isolated session · {provider?.name ?? account.provider}
+            {t("accounts.isolatedSession", "Isolated session · {provider}", { provider: provider?.name ?? account.provider })}
           </span>
-          {info ? <Badge tone="success">attached</Badge> : busy ? <Badge tone="info">opening</Badge> : null}
+          {info ? <Badge tone="success">{t("accounts.attached", "attached")}</Badge> : busy ? <Badge tone="info">{t("accounts.opening", "opening")}</Badge> : null}
         </div>
         <div className="flex items-center gap-1">
           <Button size="sm" variant="ghost" icon={<RefreshCw size={12} />} onClick={() => void reload()}>
-            Reload
+            {t("accounts.reload", "Reload")}
           </Button>
           <Button size="sm" variant="secondary" onClick={onClose}>
-            End session
+            {t("accounts.endSession", "End session")}
           </Button>
         </div>
       </div>
@@ -351,23 +382,25 @@ function SessionPanel({
           {error ? (
             <div className="max-w-sm px-6 text-center">
               <AlertTriangle size={20} className="mx-auto text-danger" />
-              <p className="mt-3 text-sm font-medium text-fg">Session unavailable</p>
+              <p className="mt-3 text-sm font-medium text-fg">{t("accounts.sessionUnavailable", "Session unavailable")}</p>
               <p className="mt-1 text-xs leading-5 text-muted">{error}</p>
               <Button className="mt-4" variant="secondary" onClick={onClose}>
-                Close panel
+                {t("accounts.closePanel", "Close panel")}
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 text-xs text-muted">
               <Loader2 size={15} className="animate-spin text-accent" />
-              {busy ? "Opening isolated provider session…" : "Provider session is active."}
+              {busy ? t("accounts.sessionOpening", "Opening isolated provider session…") : t("accounts.sessionActive", "Provider session is active.")}
             </div>
           )}
         </div>
       </div>
       <p className="border-t border-line/60 px-4 py-2.5 text-[10.5px] leading-4 text-faint">
-        Sign in inside this view. Cookies remain in a profile directory outside the database; BITS AI Video Creator never
-        reads your password. Navigation is restricted to HTTPS and pop-up windows are denied.
+        {t(
+          "accounts.sessionFooter",
+          "Sign in inside this view. Cookies remain in a profile directory outside the database; BITS AI Video Creator never reads your password. Navigation is restricted to HTTPS and pop-up windows are denied.",
+        )}
       </p>
     </div>
   );
@@ -376,6 +409,7 @@ function SessionPanel({
 export function AccountsPage() {
   const android = isAndroid();
   const toast = useToast();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
   const deferredQuery = useDeferredValue(query);
@@ -436,29 +470,34 @@ export function AccountsPage() {
   const favorite = useMutation({
     mutationFn: ({ id, value }: { id: string; value: boolean }) => api.setAccountFavorite(id, value),
     onSuccess: (updated) => invalidateAccount(updated.id),
-    onError: (cause) => toast.error("Unable to update favorite", toApiError(cause).message),
+    onError: (cause) => toast.error(t("accounts.favoriteFailed", "Unable to update favorite"), toApiError(cause).message),
   });
 
   const status = useMutation({
     mutationFn: ({ id, value }: { id: string; value: AccountStatus }) => api.setAccountStatus(id, value),
     onSuccess: (updated) => {
-      toast.success("Status updated", `${updated.name} is now ${updated.status.replace(/_/g, " ")}.`);
+      toast.success(t("accounts.statusUpdated", "Status updated"), t("accounts.statusNow", "{name} is now {status}.", { name: updated.name, status: humanStatus(updated.status) }));
       invalidateAccount(updated.id);
     },
-    onError: (cause) => toast.error("Unable to update status", toApiError(cause).message),
+    onError: (cause) => toast.error(t("accounts.statusFailed", "Unable to update status"), toApiError(cause).message),
   });
 
   const remove = useMutation({
     mutationFn: async (account: Account) => api.deleteAccount(account.id, account.name),
     onSuccess: (result, account) => {
-      toast.success("Account deleted", result.cleanedUp ? `${account.name} and its profile were removed.` : `${account.name} was removed; profile cleanup is pending.`);
+      toast.success(
+        t("accounts.deleted", "Account deleted"),
+        result.cleanedUp
+          ? t("accounts.deletedWithProfile", "{name} and its profile were removed.", { name: account.name })
+          : t("accounts.deletedProfilePending", "{name} was removed; profile cleanup is pending.", { name: account.name }),
+      );
       setDeleteTarget(null);
       setSelectedId(null);
       setSessionFor(null);
       void queryClient.invalidateQueries({ queryKey: ["accounts"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (cause) => toast.error("Unable to delete account", toApiError(cause).message),
+    onError: (cause) => toast.error(t("accounts.deleteFailed", "Unable to delete account"), toApiError(cause).message),
   });
 
   const closeSession = useCallback(() => {
@@ -497,16 +536,19 @@ export function AccountsPage() {
     <div className="flex h-full flex-col overflow-hidden">
       <div className="px-4 pb-4 pt-4 md:px-7 md:pb-5 md:pt-6">
         <PageHeader
-          eyebrow="Workspace"
-          title="Provider accounts"
-          description="Organize provider identities, track local sign-in state, and open isolated sessions. Credentials and cookies never enter the application database."
+          eyebrow={t("nav.group.workspace", "Workspace")}
+          title={t("accounts.title", "Provider accounts")}
+          description={t(
+            "accounts.description",
+            "Organize provider identities, track local sign-in state, and open isolated sessions. Credentials and cookies never enter the application database.",
+          )}
           actions={
             <>
               <Button onClick={() => navigate("/workflows")} icon={<ArrowUpRight size={14} />}>
-                Workflows
+                {t("nav.workflows", "Workflows")}
               </Button>
               <Button variant="primary" icon={<Plus size={15} />} onClick={openCreate}>
-                Add account
+                {t("accounts.addAccount", "Add account")}
               </Button>
             </>
           }
@@ -521,9 +563,9 @@ export function AccountsPage() {
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search name, email, tags…"
+                placeholder={t("accounts.searchPlaceholder", "Search name, email, tags…")}
                 className="h-8 pl-8 text-xs"
-                aria-label="Search accounts"
+                aria-label={t("accounts.searchAria", "Search accounts")}
               />
             </div>
             <div className="grid grid-cols-2 gap-2">
@@ -531,9 +573,9 @@ export function AccountsPage() {
                 value={providerFilter}
                 onChange={(event) => setProviderFilter(event.target.value)}
                 className="h-8 text-xs"
-                aria-label="Filter by provider"
+                aria-label={t("accounts.providerFilterAria", "Filter by provider")}
               >
-                <option value="">All providers</option>
+                <option value="">{t("accounts.allProviders", "All providers")}</option>
                 {(providers.data ?? []).map((provider) => (
                   <option key={provider.id} value={provider.id}>
                     {provider.name}
@@ -544,12 +586,12 @@ export function AccountsPage() {
                 value={statusFilter}
                 onChange={(event) => setStatusFilter(event.target.value)}
                 className="h-8 text-xs"
-                aria-label="Filter by status"
+                aria-label={t("accounts.statusFilterAria", "Filter by status")}
               >
-                <option value="">All statuses</option>
+                <option value="">{t("accounts.allStatuses", "All statuses")}</option>
                 {STATUS_OPTIONS.map((item) => (
                   <option key={item} value={item}>
-                    {item.replace(/_/g, " ")}
+                    {humanStatus(item)}
                   </option>
                 ))}
               </Select>
@@ -564,9 +606,9 @@ export function AccountsPage() {
                 }`}
               >
                 <Star size={11} className={favoritesOnly ? "fill-current" : ""} />
-                Favorites only
+                {t("accounts.favoritesOnly", "Favorites only")}
               </button>
-              <span className="numeric text-[10px] text-faint">{list.length} shown</span>
+              <span className="numeric text-[10px] text-faint">{t("accounts.shown", "{count} shown", { count: list.length })}</span>
             </div>
           </div>
 
@@ -582,11 +624,11 @@ export function AccountsPage() {
             ) : list.length === 0 ? (
               <EmptyState
                 icon={<UserRound size={18} />}
-                title={activeFilters ? "No matching accounts" : "No accounts yet"}
+                title={activeFilters ? t("accounts.noMatchingTitle", "No matching accounts") : t("accounts.noAccountsTitle", "No accounts yet")}
                 description={
                   activeFilters
-                    ? "Adjust the search or filters. Accounts remain stored even when they do not match."
-                    : "Add a provider identity, then open an isolated session to sign in."
+                    ? t("accounts.noMatchingDesc", "Adjust the search or filters. Accounts remain stored even when they do not match.")
+                    : t("accounts.noAccountsDesc", "Add a provider identity, then open an isolated session to sign in.")
                 }
                 action={
                   activeFilters ? (
@@ -599,11 +641,11 @@ export function AccountsPage() {
                         setFavoritesOnly(false);
                       }}
                     >
-                      Clear filters
+                      {t("accounts.clearFilters", "Clear filters")}
                     </Button>
                   ) : (
                     <Button variant="primary" icon={<Plus size={14} />} onClick={openCreate}>
-                      Add account
+                      {t("accounts.addAccount", "Add account")}
                     </Button>
                   )
                 }
@@ -647,7 +689,7 @@ export function AccountsPage() {
                         ) : null}
                       </button>
                       <IconButton
-                        label={account.favorite ? `Unpin ${account.name}` : `Pin ${account.name}`}
+                        label={account.favorite ? t("accounts.unpinNamed", "Unpin {name}", { name: account.name }) : t("accounts.pinNamed", "Pin {name}", { name: account.name })}
                         size="sm"
                         className={`absolute right-2 top-2 ${account.favorite ? "text-accent" : ""}`}
                         onClick={() => favorite.mutate({ id: account.id, value: !account.favorite })}
@@ -667,8 +709,8 @@ export function AccountsPage() {
             <div className="flex flex-1 items-center justify-center">
               <EmptyState
                 icon={<UserRound size={20} />}
-                title="Select an account"
-                description="Account metadata, provider session state, and sign-in controls appear here."
+                title={t("accounts.selectTitle", "Select an account")}
+                description={t("accounts.selectDesc", "Account metadata, provider session state, and sign-in controls appear here.")}
               />
             </div>
           ) : (
@@ -679,13 +721,13 @@ export function AccountsPage() {
                     <h2 className="truncate text-[17px] font-semibold tracking-[-0.01em] text-fg">{selected.name}</h2>
                     <StatusBadge status={selected.status} />
                     {selected.favorite ? (
-                      <Star size={13} className="fill-current text-accent" aria-label="Favorite" />
+                      <Star size={13} className="fill-current text-accent" aria-label={t("accounts.favoriteAria", "Favorite")} />
                     ) : null}
                   </div>
                   <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted">
                     <span>{providerLabel(providers.data ?? [], selected.provider)}</span>
                     {selected.email ? <span className="text-faint">· {selected.email}</span> : null}
-                    <span className="text-faint">· created {relativeTime(selected.createdAt)}</span>
+                    <span className="text-faint">{t("accounts.createdAgo", "· created {time}", { time: relativeTime(selected.createdAt) })}</span>
                   </p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
@@ -693,19 +735,19 @@ export function AccountsPage() {
                     value={selected.status}
                     onChange={(event) => status.mutate({ id: selected.id, value: event.target.value as AccountStatus })}
                     className="h-8 w-[126px] text-xs"
-                    aria-label="Account status"
+                    aria-label={t("accounts.statusAria", "Account status")}
                     disabled={status.isPending}
                   >
                     {STATUS_OPTIONS.map((item) => (
                       <option key={item} value={item}>
-                        {item.replace(/_/g, " ")}
+                        {humanStatus(item)}
                       </option>
                     ))}
                   </Select>
                   <Button size="sm" icon={<Pencil size={13} />} onClick={() => openEdit(selected)}>
-                    Edit
+                    {t("common.edit", "Edit")}
                   </Button>
-                  <IconButton label={`Delete ${selected.name}`} tone="danger" onClick={() => requestDelete(selected)}>
+                  <IconButton label={t("accounts.deleteNamed", "Delete {name}", { name: selected.name })} tone="danger" onClick={() => requestDelete(selected)}>
                     <Trash2 size={15} />
                   </IconButton>
                   {android ? (
@@ -718,7 +760,7 @@ export function AccountsPage() {
                         if (provider) void openUrl(provider.url);
                       }}
                     >
-                      Provider sign-in
+                      {t("accounts.providerSignIn", "Provider sign-in")}
                     </Button>
                   ) : (
                     <Button
@@ -730,7 +772,7 @@ export function AccountsPage() {
                         else setSessionFor(selected.id);
                       }}
                     >
-                      {sessionFor ? "Close session" : "Open session"}
+                      {sessionFor ? t("accounts.closeSession", "Close session") : t("accounts.openSession", "Open session")}
                     </Button>
                   )}
                 </div>
@@ -739,11 +781,12 @@ export function AccountsPage() {
               {sessionFor && android ? (
                 <div className="min-h-0 flex-1 overflow-y-auto p-5">
                   <div className="rounded-xl border border-warn/25 bg-warn/[0.04] p-4">
-                    <p className="text-sm font-medium text-warn">Embedded sign-in is not available on Android yet</p>
+                    <p className="text-sm font-medium text-warn">{t("accounts.androidTitle", "Embedded sign-in is not available on Android yet")}</p>
                     <p className="mt-1 text-xs leading-5 text-muted">
-                      Android does not currently support BITS AI Video Creator&apos; isolated per-account provider profiles.
-                      Open the provider in your system browser, sign in there, and keep this account record for
-                      workflow targeting and reminders.
+                      {t(
+                        "accounts.androidBody",
+                        "Android does not currently support BITS AI Video Creator' isolated per-account provider profiles. Open the provider in your system browser, sign in there, and keep this account record for workflow targeting and reminders.",
+                      )}
                     </p>
                     <Button
                       className="mt-4"
@@ -755,7 +798,7 @@ export function AccountsPage() {
                         if (provider) void openUrl(provider.url);
                       }}
                     >
-                      Open provider sign-in
+                      {t("accounts.openProviderSignIn", "Open provider sign-in")}
                     </Button>
                   </div>
                 </div>
@@ -771,39 +814,39 @@ export function AccountsPage() {
                   <div className="grid gap-4 xl:grid-cols-2">
                     <section className="rounded-xl border border-line/80 bg-surface/45">
                       <div className="border-b border-line/60 px-4 py-2.5">
-                        <SectionLabel>Metadata</SectionLabel>
+                        <SectionLabel>{t("accounts.metadata", "Metadata")}</SectionLabel>
                       </div>
                       <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-xs">
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Provider id</dt>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.providerId", "Provider id")}</dt>
                           <dd className="mt-1 truncate font-mono text-[11px] text-muted">{selected.provider}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">External id</dt>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.externalId", "External id")}</dt>
                           <dd className="mt-1 truncate font-mono text-[11px] text-muted">{selected.externalId ?? "—"}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Created</dt>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.createdLabel", "Created")}</dt>
                           <dd className="mt-1 text-[11px] text-muted">{formatDateTime(selected.createdAt)}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Updated</dt>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.updatedLabel", "Updated")}</dt>
                           <dd className="mt-1 text-[11px] text-muted">{formatDateTime(selected.updatedAt)}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Last opened</dt>
-                          <dd className="mt-1 text-[11px] text-muted">{selected.lastOpenedAt ? relativeTime(selected.lastOpenedAt) : "Never"}</dd>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.lastOpened", "Last opened")}</dt>
+                          <dd className="mt-1 text-[11px] text-muted">{selected.lastOpenedAt ? relativeTime(selected.lastOpenedAt) : t("common.never", "Never")}</dd>
                         </div>
                         <div>
-                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Last checked</dt>
-                          <dd className="mt-1 text-[11px] text-muted">{selected.lastCheckedAt ? relativeTime(selected.lastCheckedAt) : "Never"}</dd>
+                          <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("accounts.lastChecked", "Last checked")}</dt>
+                          <dd className="mt-1 text-[11px] text-muted">{selected.lastCheckedAt ? relativeTime(selected.lastCheckedAt) : t("common.never", "Never")}</dd>
                         </div>
                       </dl>
                     </section>
 
                     <section className="rounded-xl border border-line/80 bg-surface/45">
                       <div className="flex items-center justify-between border-b border-line/60 px-4 py-2.5">
-                        <SectionLabel>Provider profile</SectionLabel>
+                        <SectionLabel>{t("accounts.providerProfile", "Provider profile")}</SectionLabel>
                         <button
                           type="button"
                           onClick={() => void profile.refetch()}
@@ -811,12 +854,12 @@ export function AccountsPage() {
                           disabled={profile.isFetching}
                         >
                           <RefreshCw size={11} className={profile.isFetching ? "animate-spin" : ""} />
-                          Check
+                          {t("accounts.check", "Check")}
                         </button>
                       </div>
                       {profile.isLoading ? (
                         <div className="flex items-center gap-2 p-4 text-xs text-muted">
-                          <Loader2 size={13} className="animate-spin" /> Inspecting isolated profile…
+                          <Loader2 size={13} className="animate-spin" /> {t("accounts.inspecting", "Inspecting isolated profile…")}
                         </div>
                       ) : profile.isError ? (
                         <p className="p-4 text-xs leading-5 text-danger">{profile.error.message}</p>
@@ -824,16 +867,21 @@ export function AccountsPage() {
                         <div className="space-y-2.5 p-4 text-xs">
                           <div className="flex items-center gap-2">
                             <Badge tone={profile.data.state === "ready" ? "success" : "warning"} dot>
-                              {profile.data.state}
+                              {humanStatus(profile.data.state)}
                             </Badge>
                             <span className="numeric text-[10.5px] text-faint">
-                              {profile.data.fileCount} files · {formatBytes(profile.data.bytes)}
+                              {t("accounts.profileFiles", "{count} files · {size}", {
+                                count: profile.data.fileCount,
+                                size: formatBytes(profile.data.bytes),
+                              })}
                             </span>
                           </div>
                           <p className="leading-5 text-muted">{profile.data.message}</p>
                           <p className="break-all font-mono text-[10px] leading-4 text-faint">{profile.data.profilePath}</p>
                           <p className="text-[10px] text-faint">
-                            Last modified: {profile.data.lastModified ? formatDateTime(profile.data.lastModified) : "—"}
+                            {t("accounts.lastModified", "Last modified: {time}", {
+                              time: profile.data.lastModified ? formatDateTime(profile.data.lastModified) : "—",
+                            })}
                           </p>
                         </div>
                       ) : null}
@@ -842,19 +890,19 @@ export function AccountsPage() {
 
                   <section className="mt-4 rounded-xl border border-line/80 bg-surface/45">
                     <div className="border-b border-line/60 px-4 py-2.5">
-                      <SectionLabel>Sign-in guidance</SectionLabel>
+                      <SectionLabel>{t("accounts.signInGuidance", "Sign-in guidance")}</SectionLabel>
                     </div>
                     <div className="flex gap-3 p-4">
                       <ShieldCheck size={17} className="mt-0.5 shrink-0 text-accent" />
                       <div>
                         <p className="text-xs leading-5 text-muted">
                           {providerMap.get(selected.provider)?.signInHint ??
-                            "Open the isolated provider session to sign in. BITS AI Video Creator never asks for provider passwords."}
+                            t("accounts.signInFallback", "Open the isolated provider session to sign in. BITS AI Video Creator never asks for provider passwords.")}
                         </p>
                         <p className="mt-2 text-[10.5px] leading-4 text-faint">
-                          The provider profile lives at{" "}
+                          {t("accounts.profilePathPrefix", "The provider profile lives at")}{" "}
                           <span className="font-mono">{profile.data?.profilePath ?? "webview-profiles/<account-id>"}</span>.
-                          Deleting the account removes this profile.
+                          {t("accounts.profilePathSuffix", "Deleting the account removes this profile.")}
                         </p>
                       </div>
                     </div>
@@ -862,7 +910,7 @@ export function AccountsPage() {
 
                   <section className="mt-4 rounded-xl border border-line/80 bg-surface/45">
                     <div className="border-b border-line/60 px-4 py-2.5">
-                      <SectionLabel>Notes & tags</SectionLabel>
+                      <SectionLabel>{t("accounts.notesTags", "Notes & tags")}</SectionLabel>
                     </div>
                     <div className="space-y-3 p-4">
                       {selected.tags.length > 0 ? (
@@ -874,10 +922,10 @@ export function AccountsPage() {
                           ))}
                         </div>
                       ) : (
-                        <p className="text-[11px] text-faint">No tags.</p>
+                        <p className="text-[11px] text-faint">{t("accounts.noTags", "No tags.")}</p>
                       )}
                       <p className="whitespace-pre-wrap break-words text-xs leading-6 text-muted">
-                        {selected.notes.trim() || "No notes."}
+                        {selected.notes.trim() || t("accounts.noNotes", "No notes.")}
                       </p>
                     </div>
                   </section>
@@ -886,17 +934,22 @@ export function AccountsPage() {
                     <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-warn/25 bg-warn/5 p-3.5">
                       <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" />
                       <div className="text-xs leading-5 text-muted">
-                        This account is marked <strong className="text-warn">{selected.status.replace(/_/g, " ")}</strong>.
-                        Account checks configured with “fail when inactive” will stop workflows until the status is
-                        set back to active.
+                        {t("accounts.markedPrefix", "This account is marked")}{" "}
+                        <strong className="text-warn">{humanStatus(selected.status)}</strong>.{" "}
+                        {t(
+                          "accounts.inactiveNote",
+                          "Account checks configured with “fail when inactive” will stop workflows until the status is set back to active.",
+                        )}
                       </div>
                     </div>
                   ) : (
                     <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-accent/20 bg-accent/[0.035] p-3.5">
                       <CheckCircle2 size={15} className="mt-0.5 shrink-0 text-accent" />
                       <p className="text-xs leading-5 text-muted">
-                        Status is managed locally. If a provider session expires, set the status to
-                        “needs sign-in” and open the session to authenticate again.
+                        {t(
+                          "accounts.activeNote",
+                          "Status is managed locally. If a provider session expires, set the status to “needs sign-in” and open the session to authenticate again.",
+                        )}
                       </p>
                     </div>
                   )}
@@ -920,16 +973,19 @@ export function AccountsPage() {
 
       <ConfirmDialog
         open={deleteTarget != null}
-        title="Delete account"
+        title={t("accounts.deleteTitle", "Delete account")}
         description={
           <>
-            This removes <strong className="text-fg">{deleteTarget?.name}</strong> from the local database and deletes
-            its isolated provider profile, including session cookies. Workflow steps that reference this account will
-            fail validation until updated. This cannot be undone.
+            {t("accounts.deleteDescPrefix", "This removes")}{" "}
+            <strong className="text-fg">{deleteTarget?.name}</strong>{" "}
+            {t(
+              "accounts.deleteDescSuffix",
+              "from the local database and deletes its isolated provider profile, including session cookies. Workflow steps that reference this account will fail validation until updated. This cannot be undone.",
+            )}
           </>
         }
         confirmationLabel={deleteTarget?.name ?? ""}
-        confirmLabel="Delete account"
+        confirmLabel={t("accounts.deleteTitle", "Delete account")}
         busy={remove.isPending}
         onConfirm={() => {
           if (deleteTarget) remove.mutate(deleteTarget);

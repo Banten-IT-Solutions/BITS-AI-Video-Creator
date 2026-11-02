@@ -36,6 +36,7 @@ import {
 import { api, toApiError } from "../lib/api";
 import { formatDateTime, relativeTime } from "../lib/format";
 import { navigate } from "../lib/router";
+import { useI18n } from "../i18n";
 import type { WorkflowDraft, WorkflowInput, WorkflowSummary } from "../lib/types";
 import { blankDefinition } from "../lib/workflow";
 
@@ -55,6 +56,7 @@ function tagsFrom(value: string): string[] {
 }
 
 function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [description, setDescription] = useState("");
@@ -88,13 +90,16 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
       });
     },
     onSuccess: (workflow) => {
-      toast.success("Draft created", "Review and test it before enabling the workflow.");
+      toast.success(
+        t("workflows.draftCreated", "Draft created"),
+        t("workflows.draftCreatedDetail", "Review and test it before enabling the workflow."),
+      );
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onClose();
       navigate(`/workflows/${workflow.id}`);
     },
-    onError: (cause) => toast.error("Unable to create workflow", toApiError(cause).message),
+    onError: (cause) => toast.error(t("workflows.unableToCreate", "Unable to create workflow"), toApiError(cause).message),
   });
 
   return (
@@ -102,13 +107,16 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
       open={open}
       onClose={generate.isPending || create.isPending ? () => undefined : onClose}
       closeOnBackdrop={!generate.isPending && !create.isPending}
-      title="Generate a workflow draft"
-      description="Describe the automation. BITS AI Video Creator asks the configured OpenAI-compatible endpoint, validates the result, and shows it here before saving."
+      title={t("workflows.aiDraftTitle", "Generate a workflow draft")}
+      description={t(
+        "workflows.aiDraftDescription",
+        "Describe the automation. BITS AI Video Creator asks the configured OpenAI-compatible endpoint, validates the result, and shows it here before saving.",
+      )}
       size="lg"
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={generate.isPending || create.isPending}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="secondary"
@@ -117,7 +125,7 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
             disabled={!description.trim()}
             onClick={() => generate.mutate()}
           >
-            Generate draft
+            {t("workflows.generateDraft", "Generate draft")}
           </Button>
           <Button
             variant="primary"
@@ -126,13 +134,16 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
             disabled={!draft?.validation.valid || !name.trim()}
             onClick={() => create.mutate()}
           >
-            Create workflow
+            {t("workflows.createWorkflow", "Create workflow")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="What should the workflow do?" hint="Up to 4,000 characters. Do not include secret values.">
+        <Field
+          label={t("workflows.aiPromptLabel", "What should the workflow do?")}
+          hint={t("workflows.aiPromptHint", "Up to 4,000 characters. Do not include secret values.")}
+        >
           <Textarea
             value={description}
             onChange={(event) => {
@@ -142,7 +153,10 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
             }}
             rows={5}
             maxLength={4000}
-            placeholder="Every weekday, call https://api.example.com/health with a secret token and log a warning when the status is not 200."
+            placeholder={t(
+              "workflows.aiPromptPlaceholder",
+              "Every weekday, call https://api.example.com/health with a secret token and log a warning when the status is not 200.",
+            )}
             disabled={generate.isPending}
           />
         </Field>
@@ -153,20 +167,29 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
           <div className="space-y-3 rounded-xl border border-line/80 bg-surface/40 p-4">
             <div className="flex flex-wrap items-start justify-between gap-2">
               <div>
-                <p className="text-xs font-medium text-fg">{draft.definition.nodes.length} nodes · {draft.definition.edges.length} edges</p>
+                <p className="text-xs font-medium text-fg">
+                  {t("workflows.draftStats", "{nodes} nodes · {edges} edges", {
+                    nodes: draft.definition.nodes.length,
+                    edges: draft.definition.edges.length,
+                  })}
+                </p>
                 <p className="mt-0.5 text-[10px] text-faint">
-                  Generated from {description.length.toLocaleString()} characters of instructions.
+                  {t("workflows.draftGeneratedFrom", "Generated from {count} characters of instructions.", {
+                    count: description.length.toLocaleString(),
+                  })}
                 </p>
               </div>
               <Badge tone={draft.validation.valid ? "success" : "danger"} dot>
-                {draft.validation.valid ? "valid draft" : "needs fixes"}
+                {draft.validation.valid
+                  ? t("workflows.validDraft", "valid draft")
+                  : t("workflows.needsFixes", "needs fixes")}
               </Badge>
             </div>
-            <Field label="Workflow name">
+            <Field label={t("workflows.workflowName", "Workflow name")}>
               <Input value={name} onChange={(event) => setName(event.target.value)} maxLength={100} />
             </Field>
             <div>
-              <p className="text-[9.5px] uppercase tracking-[0.1em] text-faint">Nodes</p>
+              <p className="text-[9.5px] uppercase tracking-[0.1em] text-faint">{t("workflows.nodesLabel", "Nodes")}</p>
               <ul className="mt-1.5 flex flex-wrap gap-1.5">
                 {draft.definition.nodes.map((node) => (
                   <li key={node.id} className="rounded-md border border-line/70 bg-panel px-2 py-1 font-mono text-[9.5px] text-muted">
@@ -186,14 +209,17 @@ function AiDraftModal({ open, onClose }: { open: boolean; onClose: () => void })
               </ul>
             ) : null}
             <p className="text-[9.5px] leading-4 text-faint">
-              Nothing has been saved. Creating the workflow stores this exact definition, paused, after your
-              confirmation.
+              {t(
+                "workflows.draftNotSaved",
+                "Nothing has been saved. Creating the workflow stores this exact definition, paused, after your confirmation.",
+              )}
             </p>
           </div>
         ) : (
           <div className="rounded-lg border border-line/70 bg-surface/40 p-3 text-[10.5px] leading-4 text-muted">
-            Configure the endpoint, model, and an <span className="font-mono text-fg">ai.api_key</span> secret in
-            Settings → Integrations first.
+            {t("workflows.aiHintPrefix", "Configure the endpoint, model, and an")}{" "}
+            <span className="font-mono text-fg">ai.api_key</span>{" "}
+            {t("workflows.aiHintSuffix", "secret in Settings → Integrations first.")}
           </div>
         )}
       </div>
@@ -210,6 +236,7 @@ function CreateWorkflowModal({
   onClose: () => void;
   onCreated: (workflowId: string) => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
@@ -230,7 +257,10 @@ function CreateWorkflowModal({
       return api.createWorkflow(input);
     },
     onSuccess: (workflow) => {
-      toast.success("Workflow created", "Add actions and connect them in the editor.");
+      toast.success(
+        t("workflows.created", "Workflow created"),
+        t("workflows.createdDetail", "Add actions and connect them in the editor."),
+      );
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onCreated(workflow.id);
@@ -250,8 +280,11 @@ function CreateWorkflowModal({
       open={open}
       onClose={create.isPending ? () => undefined : onClose}
       closeOnBackdrop={!create.isPending}
-      title="New workflow"
-      description="Start with a manual trigger. You can add a schedule trigger and actions in the editor."
+      title={t("workflows.newTitle", "New workflow")}
+      description={t(
+        "workflows.newDescription",
+        "Start with a manual trigger. You can add a schedule trigger and actions in the editor.",
+      )}
       size="md"
       footer={
         <>
@@ -263,7 +296,7 @@ function CreateWorkflowModal({
               onClose();
             }}
           >
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="primary"
@@ -272,32 +305,36 @@ function CreateWorkflowModal({
             disabled={!name.trim()}
             onClick={() => create.mutate()}
           >
-            Create & open editor
+            {t("workflows.createAndOpen", "Create & open editor")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Name">
+        <Field label={t("workflows.nameLabel", "Name")}>
           <Input
             value={name}
             onChange={(event) => setName(event.target.value)}
-            placeholder="Daily account health check"
+            placeholder={t("workflows.namePlaceholder", "Daily account health check")}
             maxLength={100}
             autoFocus
           />
         </Field>
-        <Field label="Description" optional>
+        <Field label={t("workflows.descriptionLabel", "Description")} optional>
           <Textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
             rows={3}
             maxLength={2000}
-            placeholder="What this workflow does and when to use it."
+            placeholder={t("workflows.descriptionPlaceholder", "What this workflow does and when to use it.")}
           />
         </Field>
-        <Field label="Tags" optional hint="Comma separated, up to 20 tags.">
-          <Input value={tags} onChange={(event) => setTags(event.target.value)} placeholder="monitoring, accounts" />
+        <Field label={t("workflows.tagsLabel", "Tags")} optional hint={t("workflows.tagsHint", "Comma separated, up to 20 tags.")}>
+          <Input
+            value={tags}
+            onChange={(event) => setTags(event.target.value)}
+            placeholder={t("workflows.tagsPlaceholder", "monitoring, accounts")}
+          />
         </Field>
         {error ? (
           <p className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-xs leading-5 text-danger">{error}</p>
@@ -308,6 +345,7 @@ function CreateWorkflowModal({
 }
 
 export function WorkflowsPage() {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -324,34 +362,37 @@ export function WorkflowsPage() {
     mutationFn: ({ workflow, enabled }: { workflow: WorkflowSummary; enabled: boolean }) =>
       api.setWorkflowEnabled(workflow.id, enabled),
     onSuccess: (_result, variables) => {
-      toast.success(variables.enabled ? "Workflow enabled" : "Workflow paused", variables.workflow.name);
+      toast.success(
+        variables.enabled ? t("workflows.enabledToast", "Workflow enabled") : t("workflows.pausedToast", "Workflow paused"),
+        variables.workflow.name,
+      );
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (cause) => toast.error("Unable to update workflow", toApiError(cause).message),
+    onError: (cause) => toast.error(t("workflows.unableToUpdate", "Unable to update workflow"), toApiError(cause).message),
   });
 
   const duplicate = useMutation({
     mutationFn: (workflow: WorkflowSummary) => api.duplicateWorkflow(workflow.id),
     onSuccess: (copy) => {
-      toast.success("Workflow duplicated", copy.name);
+      toast.success(t("workflows.duplicatedToast", "Workflow duplicated"), copy.name);
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       navigate(`/workflows/${copy.id}`);
     },
-    onError: (cause) => toast.error("Unable to duplicate workflow", toApiError(cause).message),
+    onError: (cause) => toast.error(t("workflows.unableToDuplicate", "Unable to duplicate workflow"), toApiError(cause).message),
   });
 
   const remove = useMutation({
     mutationFn: (workflow: WorkflowSummary) => api.deleteWorkflow(workflow.id, workflow.name),
     onSuccess: (_result, workflow) => {
-      toast.success("Workflow deleted", workflow.name);
+      toast.success(t("workflows.deletedToast", "Workflow deleted"), workflow.name);
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
     },
-    onError: (cause) => toast.error("Unable to delete workflow", toApiError(cause).message),
+    onError: (cause) => toast.error(t("workflows.unableToDelete", "Unable to delete workflow"), toApiError(cause).message),
   });
 
   const list = (workflows.data ?? []).filter((workflow) => {
@@ -370,19 +411,22 @@ export function WorkflowsPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Automation"
-        title="Workflows"
-        description="Visual definitions executed by the local engine. Every node, edge, schedule, and version is persisted in SQLite."
+        eyebrow={t("nav.group.automation", "Automation")}
+        title={t("page.workflows", "Workflows")}
+        description={t(
+          "workflows.description",
+          "Visual definitions executed by the local engine. Every node, edge, schedule, and version is persisted in SQLite.",
+        )}
         actions={
           <>
             <Button variant="secondary" icon={<Sparkles size={14} />} onClick={() => setAiOpen(true)}>
-              AI draft
+              {t("workflows.aiDraftAction", "AI draft")}
             </Button>
             <Button variant="secondary" icon={<CalendarClock size={14} />} onClick={() => navigate("/settings")}>
-              Schedules
+              {t("workflows.schedulesAction", "Schedules")}
             </Button>
             <Button variant="primary" icon={<Plus size={15} />} onClick={() => setCreateOpen(true)}>
-              New workflow
+              {t("workflows.new", "New workflow")}
             </Button>
           </>
         }
@@ -394,24 +438,27 @@ export function WorkflowsPage() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search workflows, descriptions, tags…"
+            placeholder={t("workflows.searchPlaceholder", "Search workflows, descriptions, tags…")}
             className="h-9 pl-8"
-            aria-label="Search workflows"
+            aria-label={t("workflows.searchAria", "Search workflows")}
           />
         </div>
         <Select
           value={stateFilter}
           onChange={(event) => setStateFilter(event.target.value)}
           className="h-9 w-[160px]"
-          aria-label="Filter workflows"
+          aria-label={t("workflows.filterAria", "Filter workflows")}
         >
-          <option value="">All workflows</option>
-          <option value="enabled">Enabled</option>
-          <option value="paused">Paused</option>
-          <option value="scheduled">Scheduled</option>
+          <option value="">{t("workflows.allWorkflows", "All workflows")}</option>
+          <option value="enabled">{t("common.enabled", "Enabled")}</option>
+          <option value="paused">{t("status.paused", "Paused")}</option>
+          <option value="scheduled">{t("workflows.scheduled", "Scheduled")}</option>
         </Select>
         <span className="numeric text-[10px] text-faint">
-          {list.length} of {workflows.data?.length ?? 0}
+          {t("workflows.showing", "{shown} of {total}", {
+            shown: list.length,
+            total: workflows.data?.length ?? 0,
+          })}
         </span>
       </div>
 
@@ -427,15 +474,22 @@ export function WorkflowsPage() {
         ) : list.length === 0 ? (
           <EmptyState
             icon={<WorkflowIcon size={20} />}
-            title={workflows.data?.length ? "No matching workflows" : "No workflows yet"}
+            title={
+              workflows.data?.length
+                ? t("workflows.noMatching", "No matching workflows")
+                : t("workflows.noneYet", "No workflows yet")
+            }
             description={
               workflows.data?.length
-                ? "Adjust the search or filter to see other definitions."
-                : "Create a workflow, connect a trigger to actions, validate it, and run it from here or on a schedule."
+                ? t("workflows.noMatchingDesc", "Adjust the search or filter to see other definitions.")
+                : t(
+                    "workflows.noneYetDesc",
+                    "Create a workflow, connect a trigger to actions, validate it, and run it from here or on a schedule.",
+                  )
             }
             action={
               <Button variant="primary" icon={<Plus size={14} />} onClick={() => setCreateOpen(true)}>
-                New workflow
+                {t("workflows.new", "New workflow")}
               </Button>
             }
           />
@@ -444,11 +498,11 @@ export function WorkflowsPage() {
             <table className="w-full min-w-[860px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-line/75 bg-surface/45 text-[10px] uppercase tracking-[0.08em] text-faint">
-                  <th className="px-5 py-2.5 font-medium">Workflow</th>
-                  <th className="px-3 py-2.5 font-medium">Trigger</th>
-                  <th className="px-3 py-2.5 font-medium">Nodes</th>
-                  <th className="px-3 py-2.5 font-medium">Last run</th>
-                  <th className="px-3 py-2.5 font-medium">Enabled</th>
+                  <th className="px-5 py-2.5 font-medium">{t("workflows.colWorkflow", "Workflow")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("workflows.colTrigger", "Trigger")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("workflows.colNodes", "Nodes")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("workflows.colLastRun", "Last run")}</th>
+                  <th className="px-3 py-2.5 font-medium">{t("common.enabled", "Enabled")}</th>
                   <th className="w-28 px-3 py-2.5" />
                 </tr>
               </thead>
@@ -464,7 +518,7 @@ export function WorkflowsPage() {
                         {workflow.name}
                       </button>
                       <p className="mt-0.5 line-clamp-1 text-[10.5px] leading-4 text-faint">
-                        {workflow.description || "No description."}
+                        {workflow.description || t("workflows.noDescription", "No description.")}
                       </p>
                       {workflow.tags.length > 0 ? (
                         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -483,22 +537,24 @@ export function WorkflowsPage() {
                       {workflow.schedule ? (
                         <div>
                           <Badge tone="info" dot>
-                            Scheduled
+                            {t("workflows.scheduled", "Scheduled")}
                           </Badge>
                           <p className="mt-1 font-mono text-[9.5px] text-faint">{workflow.schedule.cron}</p>
                           <p className="text-[9.5px] text-faint">{workflow.schedule.timezone}</p>
                         </div>
                       ) : (
-                        <Badge tone="neutral">Manual</Badge>
+                        <Badge tone="neutral">{t("workflows.manual", "Manual")}</Badge>
                       )}
                     </td>
                     <td className="numeric px-3 py-3 text-xs text-muted">{workflow.nodeCount}</td>
                     <td className="px-3 py-3">
                       <span className="block text-[11px] text-muted">
-                        {workflow.lastRunAt ? relativeTime(workflow.lastRunAt) : "Never"}
+                        {workflow.lastRunAt ? relativeTime(workflow.lastRunAt) : t("common.never", "Never")}
                       </span>
                       <span className="block text-[9.5px] text-faint">
-                        {workflow.lastRunAt ? formatDateTime(workflow.lastRunAt) : "No run history"}
+                        {workflow.lastRunAt
+                          ? formatDateTime(workflow.lastRunAt)
+                          : t("workflows.noRunHistory", "No run history")}
                       </span>
                     </td>
                     <td className="px-3 py-3">
@@ -507,7 +563,7 @@ export function WorkflowsPage() {
                           type="button"
                           role="switch"
                           aria-checked={workflow.enabled}
-                          aria-label={`${workflow.enabled ? "Pause" : "Enable"} ${workflow.name}`}
+                          aria-label={`${workflow.enabled ? t("workflows.pauseAction", "Pause") : t("workflows.enableAction", "Enable")} ${workflow.name}`}
                           disabled={toggle.isPending && toggle.variables?.workflow.id === workflow.id}
                           onClick={() => toggle.mutate({ workflow, enabled: !workflow.enabled })}
                           className={`relative h-5 w-9 rounded-full border transition-colors ${
@@ -520,7 +576,9 @@ export function WorkflowsPage() {
                             }`}
                           />
                         </button>
-                        <span className="text-[10px] text-faint">{workflow.enabled ? "On" : "Paused"}</span>
+                        <span className="text-[10px] text-faint">
+                          {workflow.enabled ? t("status.on", "On") : t("status.paused", "Paused")}
+                        </span>
                       </div>
                     </td>
                     <td className="px-3 py-3">
@@ -531,30 +589,36 @@ export function WorkflowsPage() {
                           icon={<Play size={12} />}
                           onClick={() => setRunTarget(runnableFromSummary(workflow))}
                         >
-                          Run
+                          {t("workflows.run", "Run")}
                         </Button>
                         <Dropdown
                           trigger={({ toggle: openMenu }) => (
-                            <IconButton label={`More actions for ${workflow.name}`} size="sm" onClick={openMenu}>
+                            <IconButton
+                              label={t("workflows.moreActions", "More actions for {name}", { name: workflow.name })}
+                              size="sm"
+                              onClick={openMenu}
+                            >
                               <MoreHorizontal size={15} />
                             </IconButton>
                           )}
                           width="w-48"
                         >
                           <DropdownItem icon={<Pencil size={13} />} onClick={() => navigate(`/workflows/${workflow.id}`)}>
-                            Open editor
+                            {t("workflows.openEditor", "Open editor")}
                           </DropdownItem>
                           <DropdownItem icon={<Copy size={13} />} onClick={() => duplicate.mutate(workflow)}>
-                            Duplicate
+                            {t("workflows.duplicate", "Duplicate")}
                           </DropdownItem>
                           <DropdownItem
                             icon={workflow.enabled ? <Pause size={13} /> : <Zap size={13} />}
                             onClick={() => toggle.mutate({ workflow, enabled: !workflow.enabled })}
                           >
-                            {workflow.enabled ? "Pause workflow" : "Enable workflow"}
+                            {workflow.enabled
+                              ? t("workflows.pauseWorkflow", "Pause workflow")
+                              : t("workflows.enableWorkflow", "Enable workflow")}
                           </DropdownItem>
                           <DropdownItem danger icon={<Trash2 size={13} />} onClick={() => setDeleteTarget(workflow)}>
-                            Delete workflow
+                            {t("workflows.deleteWorkflow", "Delete workflow")}
                           </DropdownItem>
                         </Dropdown>
                       </div>
@@ -570,7 +634,7 @@ export function WorkflowsPage() {
       <div className="mt-4 grid gap-3 sm:grid-cols-3">
         <Card>
           <div className="p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Enabled</p>
+            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("common.enabled", "Enabled")}</p>
             <p className="numeric mt-1.5 text-xl font-semibold text-fg">
               {(workflows.data ?? []).filter((workflow) => workflow.enabled).length}
             </p>
@@ -578,7 +642,7 @@ export function WorkflowsPage() {
         </Card>
         <Card>
           <div className="p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Scheduled</p>
+            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("workflows.scheduled", "Scheduled")}</p>
             <p className="numeric mt-1.5 text-xl font-semibold text-fg">
               {(workflows.data ?? []).filter((workflow) => Boolean(workflow.schedule)).length}
             </p>
@@ -586,12 +650,12 @@ export function WorkflowsPage() {
         </Card>
         <Card>
           <div className="p-4">
-            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Total nodes</p>
+            <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("workflows.totalNodes", "Total nodes")}</p>
             <p className="numeric mt-1.5 text-xl font-semibold text-fg">
               {(workflows.data ?? []).reduce((sum, workflow) => sum + workflow.nodeCount, 0)}
             </p>
             <Button size="sm" variant="ghost" className="mt-1 px-0" onClick={() => navigate("/runs")}>
-              View run history
+              {t("workflows.viewRunHistory", "View run history")}
             </Button>
           </div>
         </Card>
@@ -609,16 +673,19 @@ export function WorkflowsPage() {
       <RunWorkflowDialog workflow={runTarget} open={runTarget != null} onClose={() => setRunTarget(null)} />
       <ConfirmDialog
         open={deleteTarget != null}
-        title="Delete workflow"
+        title={t("workflows.deleteWorkflow", "Delete workflow")}
         description={
           <>
-            This permanently deletes <strong className="text-fg">{deleteTarget?.name}</strong>, its definition,
-            schedule, and schedule metadata. Existing run history remains available for audit. This cannot be
-            undone.
+            {t("workflows.deleteConfirmPrefix", "This permanently deletes")}{" "}
+            <strong className="text-fg">{deleteTarget?.name}</strong>
+            {t(
+              "workflows.deleteConfirmSuffix",
+              ", its definition, schedule, and schedule metadata. Existing run history remains available for audit. This cannot be undone.",
+            )}
           </>
         }
         confirmationLabel={deleteTarget?.name ?? ""}
-        confirmLabel="Delete workflow"
+        confirmLabel={t("workflows.deleteWorkflow", "Delete workflow")}
         busy={remove.isPending}
         onConfirm={() => {
           if (deleteTarget) remove.mutate(deleteTarget);

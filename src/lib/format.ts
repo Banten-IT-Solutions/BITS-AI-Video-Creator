@@ -1,26 +1,28 @@
+import { localeTag, translate } from "../i18n";
+
 export type Tone = "neutral" | "success" | "danger" | "warning" | "info" | "accent";
 
 export function formatDateTime(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return new Intl.DateTimeFormat(localeTag(), { dateStyle: "medium", timeStyle: "short" }).format(date);
 }
 
 export function formatTime(value: string | null | undefined): string {
   if (!value) return "—";
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "—";
-  return new Intl.DateTimeFormat(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date);
+  return new Intl.DateTimeFormat(localeTag(), { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(date);
 }
 
 export function relativeTime(value: string | null | undefined, now = Date.now()): string {
-  if (!value) return "never";
+  if (!value) return translate("format.never", "never");
   const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "never";
+  if (Number.isNaN(date.getTime())) return translate("format.never", "never");
   const delta = date.getTime() - now;
   const absolute = Math.abs(delta);
-  if (absolute < 5_000) return "just now";
+  if (absolute < 5_000) return translate("format.justNow", "just now");
   const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
     ["year", 31_536_000_000],
     ["month", 2_592_000_000],
@@ -30,7 +32,7 @@ export function relativeTime(value: string | null | undefined, now = Date.now())
     ["minute", 60_000],
     ["second", 1_000],
   ];
-  const formatter = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+  const formatter = new Intl.RelativeTimeFormat(localeTag(), { numeric: "auto" });
   for (const [unit, size] of units) {
     if (absolute >= size || unit === "second") {
       return formatter.format(Math.round(delta / size), unit);
@@ -65,7 +67,7 @@ export function formatBytes(bytes: number | null | undefined): string {
 
 export function formatNumber(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "—";
-  return new Intl.NumberFormat().format(value);
+  return new Intl.NumberFormat(localeTag()).format(value);
 }
 
 export function statusTone(status: string | null | undefined): Tone {
@@ -90,7 +92,7 @@ export function statusTone(status: string | null | undefined): Tone {
   }
 }
 
-export function humanStatus(status: string): string {
+export function defaultStatusLabel(status: string): string {
   switch (status) {
     case "needs_login":
       return "Needs sign-in";
@@ -101,6 +103,10 @@ export function humanStatus(status: string): string {
     default:
       return status.charAt(0).toUpperCase() + status.slice(1);
   }
+}
+
+export function humanStatus(status: string): string {
+  return translate(`status.${status}`, defaultStatusLabel(status));
 }
 
 export function truncate(value: string, maximum = 120): string {
@@ -123,12 +129,12 @@ export function parseJsonObject(text: string): { ok: true; value: unknown } | { 
   try {
     return { ok: true, value: JSON.parse(trimmed) as unknown };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Invalid JSON" };
+    return { ok: false, error: error instanceof Error ? error.message : translate("common.invalidJson", "Invalid JSON") };
   }
 }
 
 export function dayLabel(day: string): string {
   const date = new Date(`${day}T12:00:00`);
   if (Number.isNaN(date.getTime())) return day;
-  return new Intl.DateTimeFormat(undefined, { weekday: "short" }).format(date);
+  return new Intl.DateTimeFormat(localeTag(), { weekday: "short" }).format(date);
 }

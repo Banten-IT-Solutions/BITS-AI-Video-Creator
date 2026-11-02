@@ -1,0 +1,41 @@
+const logs: Record<string, string> = {
+  "logs.eyebrow": "Diagnostik",
+  "logs.title": "Log",
+  "logs.description":
+    "Peristiwa aplikasi, penjadwal, engine, dan akun. Nilai sensitif disamarkan sebelum disimpan; retensi log dan batas baris diatur di pengaturan.",
+  "logs.clearLogs": "Hapus log",
+  "logs.allLevels": "Semua level",
+  "logs.countsPageOnly": "Hitungan hanya mencakup halaman saat ini.",
+  "logs.eventStream": "Aliran peristiwa",
+  "logs.eventStreamDesc": "Terbaru di atas. Pemfilteran diterapkan oleh database lokal sebelum paginasi.",
+  "logs.filterByLevel": "Filter menurut level log",
+  "logs.searchPlaceholder": "Cari pesan atau detail…",
+  "logs.searchAria": "Cari pesan log",
+  "logs.scopePlaceholder": "Scope persis, mis. scheduler",
+  "logs.scopeAria": "Filter menurut scope",
+  "logs.runIdPlaceholder": "ID eksekusi (persis)",
+  "logs.runIdAria": "Filter menurut ID eksekusi",
+  "logs.noMatch": "Tidak ada entri log yang cocok",
+  "logs.noMatchDesc": "Coba pencarian yang lebih luas, hapus scope atau ID eksekusi, atau pilih level lain.",
+  "logs.empty": "Belum ada entri log",
+  "logs.emptyDesc":
+    "Entri log muncul setelah ada aktivitas aplikasi. Jalankan workflow untuk mengisi log engine dan langkah.",
+  "logs.clearFilters": "Hapus filter",
+  "logs.page": "Halaman {page}",
+  "logs.refreshing": "menyegarkan",
+  "logs.previous": "Sebelumnya",
+  "logs.next": "Berikutnya",
+  "logs.collapse": "Ciutkan entri log",
+  "logs.expand": "Perluas entri log",
+  "logs.runToken": "eksekusi {id}",
+  "logs.noDetails": "Tidak ada detail terstruktur untuk entri ini.",
+  "logs.cleared": "Log dihapus",
+  "logs.removedOne": "{count} entri dihapus.",
+  "logs.removedMany": "{count} entri dihapus.",
+  "logs.unableToClear": "Tidak dapat menghapus log",
+  "logs.clearConfirmTitle": "Hapus semua log",
+  "logs.clearConfirmDesc":
+    "Tindakan ini menghapus setiap entri log secara permanen, termasuk diagnostik terkait eksekusi. Riwayat eksekusi, output langkah, workflow, dan akun tidak terpengaruh. Tindakan ini tidak dapat dibatalkan.",
+};
+
+export default logs;

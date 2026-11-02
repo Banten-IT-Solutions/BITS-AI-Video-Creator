@@ -18,6 +18,7 @@ import {
   Monitor,
   Moon,
   RefreshCw,
+  Rocket,
   Save,
   ShieldCheck,
   Sun,
@@ -47,6 +48,9 @@ import { api, toApiError } from "../lib/api";
 import { formatBytes, formatDateTime, relativeTime, truncate, type Tone } from "../lib/format";
 import { isAndroid } from "../lib/platform";
 import { setBeforeNavigate } from "../lib/router";
+import { translate, useI18n } from "../i18n";
+import { LanguageToggle } from "../components/LanguageToggle";
+import { resetOnboarding } from "../components/Onboarding";
 import type {
   DuplicateStrategy,
   ImportPreview,
@@ -58,11 +62,18 @@ import type {
 
 type Tab = "general" | "engine" | "integrations" | "secrets" | "data" | "about";
 
-const LICENSE_STATUS_META: Record<LicenseState["status"], { label: string; tone: Tone }> = {
-  licensed: { label: "Aktif", tone: "success" },
-  unlinked: { label: "Belum Terhubung", tone: "neutral" },
-  expired: { label: "Kedaluwarsa", tone: "warning" },
-  error: { label: "Kesalahan", tone: "danger" },
+const LICENSE_STATUS_META: Record<LicenseState["status"], { tone: Tone }> = {
+  licensed: { tone: "success" },
+  unlinked: { tone: "neutral" },
+  expired: { tone: "warning" },
+  error: { tone: "danger" },
+};
+
+const LICENSE_STATUS_FALLBACK: Record<LicenseState["status"], string> = {
+  licensed: "Active",
+  unlinked: "Not linked",
+  expired: "Expired",
+  error: "Error",
 };
 
 const TABS: Array<{ id: Tab; label: string }> = [
@@ -73,6 +84,15 @@ const TABS: Array<{ id: Tab; label: string }> = [
   { id: "data", label: "Data & backup" },
   { id: "about", label: "About" },
 ];
+
+const TAB_KEYS: Record<Tab, string> = {
+  general: "settings.tab.general",
+  engine: "settings.tab.engine",
+  integrations: "settings.tab.integrations",
+  secrets: "settings.tab.secrets",
+  data: "settings.tab.data",
+  about: "settings.tab.about",
+};
 
 function initialTab(): Tab {
   const hash = window.location.hash;
@@ -126,6 +146,7 @@ function ThemeOption({
 
 export function SettingsPage() {
   const toast = useToast();
+  const { t, language } = useI18n();
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<Tab>(initialTab);
   const [draft, setDraft] = useState<Settings | null>(null);
@@ -158,7 +179,14 @@ export function SettingsPage() {
       setBeforeNavigate(null);
       return;
     }
-    setBeforeNavigate(() => window.confirm("Settings have unsaved changes. Discard them and leave this page?"));
+    setBeforeNavigate(() =>
+      window.confirm(
+        translate(
+          "settings.unsavedConfirm",
+          "Settings have unsaved changes. Discard them and leave this page?",
+        ),
+      )
+    );
     const beforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
       event.returnValue = "";
@@ -168,7 +196,7 @@ export function SettingsPage() {
       setBeforeNavigate(null);
       window.removeEventListener("beforeunload", beforeUnload);
     };
-  }, [dirty]);
+  }, [dirty, language]);
 
   const patch = (partial: Partial<Settings>) => {
     if (!draft) return;
@@ -181,25 +209,31 @@ export function SettingsPage() {
     onSuccess: (updated) => {
       setDraft(updated);
       setDirty(false);
-      toast.success("Settings saved", "Engine and scheduler settings were updated.");
+      toast.success(
+        t("settings.savedTitle", "Settings saved"),
+        t("settings.savedBody", "Engine and scheduler settings were updated."),
+      );
       void queryClient.invalidateQueries({ queryKey: ["settings"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["local-api"] });
       void queryClient.invalidateQueries({ queryKey: ["license"] });
     },
-    onError: (cause) => toast.error("Unable to save settings", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.saveFailedTitle", "Unable to save settings"), toApiError(cause).message),
   });
 
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="System"
-        title="Settings"
-        description="Local engine behavior, OS keyring metadata, data portability, and storage details. Settings are stored in SQLite; secret values only live in the operating system credential vault."
+        eyebrow={t("nav.group.system", "System")}
+        title={t("page.settings", "Settings")}
+        description={t(
+          "settings.description",
+          "Local engine behavior, OS keyring metadata, data portability, and storage details. Settings are stored in SQLite; secret values only live in the operating system credential vault.",
+        )}
         actions={
           tab === "general" || tab === "engine" || tab === "integrations" ? (
             <>
-              {dirty ? <Badge tone="warning" dot>Unsaved changes</Badge> : null}
+              {dirty ? <Badge tone="warning" dot>{t("settings.unsavedChanges", "Unsaved changes")}</Badge> : null}
               <Button
                 variant="primary"
                 icon={<Save size={14} />}
@@ -209,7 +243,7 @@ export function SettingsPage() {
                   if (draft) saveSettings.mutate(draft);
                 }}
               >
-                Save settings
+                {t("settings.saveSettings", "Save settings")}
               </Button>
             </>
           ) : undefined
@@ -217,12 +251,16 @@ export function SettingsPage() {
       />
 
       <div className="mt-5">
-        <Tabs tabs={TABS} value={tab} onChange={selectTab} />
+        <Tabs
+          tabs={TABS.map((item) => ({ id: item.id, label: t(TAB_KEYS[item.id], item.label) }))}
+          value={tab}
+          onChange={selectTab}
+        />
       </div>
 
       {!draft && settings.isLoading ? (
         <div className="mt-6 flex items-center gap-2 text-xs text-muted">
-          <SpinnerInline /> Loading settings…
+          <SpinnerInline /> {t("settings.loadingSettings", "Loading settings…")}
         </div>
       ) : settings.isError ? (
         <Card className="mt-6 border-danger/30 p-4 text-xs text-danger">{settings.error.message}</Card>
@@ -230,30 +268,49 @@ export function SettingsPage() {
 
       {draft && tab === "general" ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.3fr_1fr]">
+          <Card className="xl:col-span-2">
+            <CardHeader
+              title={t("language.title", "Language")}
+              description={t(
+                "language.description",
+                "The interface language applies immediately and is stored on this device.",
+              )}
+              actions={<LanguageToggle />}
+            />
+            <p className="p-4 text-[10.5px] leading-4 text-faint">
+              {t(
+                "language.hint",
+                "English is the default. Switch to Bahasa Indonesia to translate the whole interface; some provider and backend messages stay in English.",
+              )}
+            </p>
+          </Card>
           <Card>
-            <CardHeader title="Appearance" description="Theme is applied to the whole interface and persisted locally." />
+            <CardHeader
+              title={t("settings.appearance.title", "Appearance")}
+              description={t("settings.appearance.description", "Theme is applied to the whole interface and persisted locally.")}
+            />
             <div className="grid gap-2 p-4 sm:grid-cols-3">
               <ThemeOption
                 value="dark"
                 current={draft.theme}
-                title="Dark"
-                description="Low-light control room."
+                title={t("settings.theme.dark", "Dark")}
+                description={t("settings.theme.darkDesc", "Low-light control room.")}
                 icon={<Moon size={15} />}
                 onSelect={(value) => patch({ theme: value })}
               />
               <ThemeOption
                 value="light"
                 current={draft.theme}
-                title="Light"
-                description="Bright workspace."
+                title={t("settings.theme.light", "Light")}
+                description={t("settings.theme.lightDesc", "Bright workspace.")}
                 icon={<Sun size={15} />}
                 onSelect={(value) => patch({ theme: value })}
               />
               <ThemeOption
                 value="system"
                 current={draft.theme}
-                title="System"
-                description="Follow the OS preference."
+                title={t("settings.theme.system", "System")}
+                description={t("settings.theme.systemDesc", "Follow the OS preference.")}
                 icon={<Monitor size={15} />}
                 onSelect={(value) => patch({ theme: value })}
               />
@@ -261,9 +318,12 @@ export function SettingsPage() {
           </Card>
 
           <Card>
-            <CardHeader title="Log retention" description="Old entries are pruned at startup and when logs are written." />
+            <CardHeader
+              title={t("settings.retention.title", "Log retention")}
+              description={t("settings.retention.description", "Old entries are pruned at startup and when logs are written.")}
+            />
             <div className="space-y-4 p-4">
-              <Field label="Retention (days)" hint="1–365 days.">
+              <Field label={t("settings.retention.days", "Retention (days)")} hint={t("settings.retention.daysHint", "1–365 days.")}>
                 <Input
                   type="number"
                   min={1}
@@ -273,7 +333,7 @@ export function SettingsPage() {
                   className="numeric"
                 />
               </Field>
-              <Field label="Maximum log rows" hint="1,000–100,000 rows.">
+              <Field label={t("settings.retention.maxRows", "Maximum log rows")} hint={t("settings.retention.maxRowsHint", "1,000–100,000 rows.")}>
                 <Input
                   type="number"
                   min={1000}
@@ -285,8 +345,10 @@ export function SettingsPage() {
                 />
               </Field>
               <p className="rounded-lg border border-line/70 bg-surface/60 p-3 text-[10.5px] leading-4 text-faint">
-                Retention affects logs only. Run history and step output are retained until the database is removed
-                or replaced by a restore.
+                {t(
+                  "settings.retention.note",
+                  "Retention affects logs only. Run history and step output are retained until the database is removed or replaced by a restore.",
+                )}
               </p>
             </div>
           </Card>
@@ -297,11 +359,17 @@ export function SettingsPage() {
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.35fr_1fr]">
           <Card>
             <CardHeader
-              title="Execution engine"
-              description="Workers poll the durable run queue. Timeout, retry, and network changes apply to new runs immediately; the worker count changes on the next launch."
+              title={t("settings.engine.title", "Execution engine")}
+              description={t(
+                "settings.engine.description",
+                "Workers poll the durable run queue. Timeout, retry, and network changes apply to new runs immediately; the worker count changes on the next launch.",
+              )}
             />
             <div className="grid gap-4 p-4 sm:grid-cols-2">
-              <Field label="Concurrent workers" hint="1–8. Worker count is applied on the next app launch.">
+              <Field
+                label={t("settings.engine.workers", "Concurrent workers")}
+                hint={t("settings.engine.workersHint", "1–8. Worker count is applied on the next app launch.")}
+              >
                 <Input
                   type="number"
                   min={1}
@@ -311,7 +379,10 @@ export function SettingsPage() {
                   className="numeric"
                 />
               </Field>
-              <Field label="Run timeout (seconds)" hint="5–3,600 seconds per run.">
+              <Field
+                label={t("settings.engine.timeout", "Run timeout (seconds)")}
+                hint={t("settings.engine.timeoutHint", "5–3,600 seconds per run.")}
+              >
                 <Input
                   type="number"
                   min={5}
@@ -321,7 +392,10 @@ export function SettingsPage() {
                   className="numeric"
                 />
               </Field>
-              <Field label="Default retries" hint="0–5. Applies to HTTP and account-check steps.">
+              <Field
+                label={t("settings.engine.retries", "Default retries")}
+                hint={t("settings.engine.retriesHint", "0–5. Applies to HTTP and account-check steps.")}
+              >
                 <Input
                   type="number"
                   min={0}
@@ -331,7 +405,10 @@ export function SettingsPage() {
                   className="numeric"
                 />
               </Field>
-              <Field label="Retry delay (ms)" hint="100–60,000 ms between attempts.">
+              <Field
+                label={t("settings.engine.retryDelay", "Retry delay (ms)")}
+                hint={t("settings.engine.retryDelayHint", "100–60,000 ms between attempts.")}
+              >
                 <Input
                   type="number"
                   min={100}
@@ -345,16 +422,22 @@ export function SettingsPage() {
                 <Toggle
                   checked={draft.schedulerEnabled}
                   onChange={(value) => patch({ schedulerEnabled: value })}
-                  label="Scheduler enabled"
-                  description="Pausing stops new scheduled runs. Missed slots are recorded but never replayed automatically."
+                  label={t("settings.engine.scheduler", "Scheduler enabled")}
+                  description={t(
+                    "settings.engine.schedulerDesc",
+                    "Pausing stops new scheduled runs. Missed slots are recorded but never replayed automatically.",
+                  )}
                 />
               </div>
               <div className="sm:col-span-2 rounded-lg border border-warn/25 bg-warn/[0.035] p-3">
                 <Toggle
                   checked={draft.allowLocalNetwork}
                   onChange={(value) => patch({ allowLocalNetwork: value })}
-                  label="Allow local network HTTP requests"
-                  description="Required by HTTP nodes that opt into localhost or private addresses. Enabling this weakens SSRF protection; leave it off unless a workflow needs a local service."
+                  label={t("settings.engine.allowLocalNetwork", "Allow local network HTTP requests")}
+                  description={t(
+                    "settings.engine.allowLocalNetworkDesc",
+                    "Required by HTTP nodes that opt into localhost or private addresses. Enabling this weakens SSRF protection; leave it off unless a workflow needs a local service.",
+                  )}
                 />
               </div>
             </div>
@@ -362,45 +445,53 @@ export function SettingsPage() {
 
           <div className="space-y-4">
             <Card>
-              <CardHeader title="Runtime state" description="Read from the running desktop engine." />
+              <CardHeader
+                title={t("settings.runtime.title", "Runtime state")}
+                description={t("settings.runtime.description", "Read from the running desktop engine.")}
+              />
               <dl className="grid grid-cols-2 gap-x-4 gap-y-3 p-4 text-xs">
                 <div>
-                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Scheduler</dt>
+                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.runtime.scheduler", "Scheduler")}</dt>
                   <dd className="mt-1">
                     <Badge tone={dashboard.data?.schedulerEnabled ? "success" : "warning"} dot>
-                      {dashboard.data?.schedulerEnabled ? "Active" : "Paused"}
+                      {dashboard.data?.schedulerEnabled ? t("status.active", "Active") : t("status.paused", "Paused")}
                     </Badge>
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Queue</dt>
+                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.runtime.queue", "Queue")}</dt>
                   <dd className="numeric mt-1 text-sm text-fg">
                     {(dashboard.data?.queuedRuns ?? 0) + (dashboard.data?.runningRuns ?? 0)}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Running</dt>
+                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.runtime.running", "Running")}</dt>
                   <dd className="numeric mt-1 text-sm text-fg">{dashboard.data?.runningRuns ?? 0}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Next schedule</dt>
+                  <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.runtime.nextSchedule", "Next schedule")}</dt>
                   <dd className="mt-1 text-[11px] text-fg">
-                    {dashboard.data?.nextScheduledRun ? relativeTime(dashboard.data.nextScheduledRun) : "None"}
+                    {dashboard.data?.nextScheduledRun ? relativeTime(dashboard.data.nextScheduledRun) : t("common.none", "None")}
                   </dd>
                 </div>
               </dl>
               <p className="border-t border-line/60 px-4 py-3 text-[10px] leading-4 text-faint">
-                Scheduler ticks every 15 seconds. Slots older than five minutes are recorded as missed. Interrupted
-                runs are marked failed on startup.
+                {t(
+                  "settings.runtime.note",
+                  "Scheduler ticks every 15 seconds. Slots older than five minutes are recorded as missed. Interrupted runs are marked failed on startup.",
+                )}
               </p>
             </Card>
             <Card>
-              <CardHeader title="Safety limits" description="Applied by the local core." />
+              <CardHeader
+                title={t("settings.safety.title", "Safety limits")}
+                description={t("settings.safety.description", "Applied by the local core.")}
+              />
               <ul className="space-y-2 p-4 text-[10.5px] leading-4 text-muted">
-                <li>HTTP responses are capped at 1 MB and requests time out per node.</li>
-                <li>Run input is capped at 256 KB; imports at 20 MB.</li>
-                <li>Private and loopback hosts are rejected unless explicitly allowed.</li>
-                <li>Secret values are redacted from logs and step output.</li>
+                <li>{t("settings.safety.item1", "HTTP responses are capped at 1 MB and requests time out per node.")}</li>
+                <li>{t("settings.safety.item2", "Run input is capped at 256 KB; imports at 20 MB.")}</li>
+                <li>{t("settings.safety.item3", "Private and loopback hosts are rejected unless explicitly allowed.")}</li>
+                <li>{t("settings.safety.item4", "Secret values are redacted from logs and step output.")}</li>
               </ul>
             </Card>
           </div>
@@ -414,42 +505,79 @@ export function SettingsPage() {
       {tab === "about" && storage.data ? (
         <div className="mt-4 grid gap-4 xl:grid-cols-[1.2fr_1fr]">
           <Card>
-            <CardHeader title="Application" description="Local-first AI video studio for storyboards, voiceover, and supporting automation." />
+            <CardHeader
+              title={t("settings.about.app.title", "Application")}
+              description={t(
+                "settings.about.app.description",
+                "Local-first AI video studio for storyboards, voiceover, and supporting automation.",
+              )}
+            />
             <dl className="grid grid-cols-2 gap-x-5 gap-y-4 p-4 text-xs">
               <div>
-                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Version</dt>
+                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.about.version", "Version")}</dt>
                 <dd className="mt-1 font-mono text-[11px] text-fg">{storage.data.appVersion}</dd>
               </div>
               <div>
-                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Platform</dt>
+                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.about.platform", "Platform")}</dt>
                 <dd className="mt-1 capitalize text-[11px] text-fg">{storage.data.platform}</dd>
               </div>
               <div>
-                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Schema</dt>
+                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.about.schema", "Schema")}</dt>
                 <dd className="numeric mt-1 text-[11px] text-fg">v{storage.data.schemaVersion}</dd>
               </div>
               <div>
-                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">Secret backend</dt>
+                <dt className="text-[10px] uppercase tracking-[0.08em] text-faint">{t("settings.about.secretBackend", "Secret backend")}</dt>
                 <dd className="mt-1 text-[11px] text-fg">{storage.data.secretStore}</dd>
               </div>
             </dl>
             <p className="border-t border-line/60 px-4 py-3 text-[10.5px] leading-4 text-faint">
-              Local-first desktop application. No telemetry, cloud account, or remote control plane is required.
+              {t(
+                "settings.about.note",
+                "Local-first desktop application. No telemetry, cloud account, or remote control plane is required.",
+              )}
             </p>
           </Card>
           <Card>
-            <CardHeader title="Credits & licenses" description="Attribution for source and dependencies." />
+            <CardHeader
+              title={t("settings.about.credits.title", "Credits & licenses")}
+              description={t("settings.about.credits.description", "Attribution for source and dependencies.")}
+            />
             <div className="space-y-2 p-4 text-[10.5px] leading-4 text-muted">
+              {/* ponytail: proper attribution text stays English */}
               <p>Built with Tauri 2, React 18, React Flow, Tailwind CSS, and Rust.</p>
-              <p>Automation remains available as a supporting module for provider checks, repeatable production tasks, and local HTTP work.</p>
+              <p>
+                {t(
+                  "settings.about.credits.automation",
+                  "Automation remains available as a supporting module for provider checks, repeatable production tasks, and local HTTP work.",
+                )}
+              </p>
               <p>Provider account-management behavior was informed by public Flow Account Manager release notes; no source code was available. See NOTICE.</p>
+            </div>
+          </Card>
+          <Card className="xl:col-span-2">
+            <CardHeader
+              title={t("onboarding.resetTitle", "Onboarding")}
+              description={t(
+                "onboarding.resetDescription",
+                "Show the welcome tour and setup checklist again.",
+              )}
+            />
+            <div className="p-4">
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<Rocket size={13} />}
+                onClick={() => resetOnboarding()}
+              >
+                {t("onboarding.resetButton", "Show onboarding")}
+              </Button>
             </div>
           </Card>
         </div>
       ) : null}
       {tab === "about" && !storage.data ? (
         <div className="mt-6 flex items-center gap-2 text-xs text-muted">
-          <Loader2 size={14} className="animate-spin" /> Loading storage details…
+          <Loader2 size={14} className="animate-spin" /> {t("settings.about.loadingStorage", "Loading storage details…")}
         </div>
       ) : null}
 
@@ -464,7 +592,7 @@ export function SettingsPage() {
               if (draft) saveSettings.mutate(draft);
             }}
           >
-            Save settings
+            {t("settings.saveSettings", "Save settings")}
           </Button>
         </div>
       ) : null}
@@ -480,6 +608,7 @@ function IntegrationsTab({
   draft: Settings;
   patch: (partial: Partial<Settings>) => void;
 }) {
+  const { t } = useI18n();
   const android = isAndroid();
   const toast = useToast();
   const queryClient = useQueryClient();
@@ -496,64 +625,82 @@ function IntegrationsTab({
   const saveProxy = useMutation({
     mutationFn: () => api.setProxyPassword(proxyPassword.trim() || null),
     onSuccess: () => {
-      toast.success("Proxy credentials updated", "The engine and AI drafts use the new proxy on the next request.");
+      toast.success(
+        t("settings.ai.proxySavedTitle", "Proxy credentials updated"),
+        t("settings.ai.proxySavedBody", "The engine and AI drafts use the new proxy on the next request."),
+      );
       setProxyPassword("");
     },
-    onError: (cause) => toast.error("Unable to save proxy credentials", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.ai.proxySaveFailed", "Unable to save proxy credentials"), toApiError(cause).message),
   });
 
   const reveal = useMutation({
     mutationFn: api.revealLocalApiToken,
     onSuccess: (token) => {
       setRevealedToken(token);
-      toast.info("Local API token revealed", "Store it in your local client. Rotate it if it leaks.");
+      toast.info(
+        t("settings.localApi.revealedTitle", "Local API token revealed"),
+        t("settings.localApi.revealedBody", "Store it in your local client. Rotate it if it leaks."),
+      );
     },
-    onError: (cause) => toast.error("Unable to reveal token", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.localApi.revealFailed", "Unable to reveal token"), toApiError(cause).message),
   });
 
   const rotate = useMutation({
     mutationFn: api.rotateLocalApiToken,
     onSuccess: (token) => {
       setRevealedToken(token);
-      toast.success("Local API token rotated", "Existing clients must use the new token immediately.");
+      toast.success(
+        t("settings.localApi.rotatedTitle", "Local API token rotated"),
+        t("settings.localApi.rotatedBody", "Existing clients must use the new token immediately."),
+      );
       void queryClient.invalidateQueries({ queryKey: ["local-api"] });
     },
-    onError: (cause) => toast.error("Unable to rotate token", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.localApi.rotateFailed", "Unable to rotate token"), toApiError(cause).message),
   });
 
   const check = useMutation({
     mutationFn: api.checkForUpdates,
     onSuccess: (result) => {
       setUpdateResult(result);
-      if (result) toast.success("Update available", `Version ${result.version} is ready to install.`);
-      else toast.info("Up to date", "No newer release was found at the configured endpoint.");
+      if (result) {
+        toast.success(
+          t("settings.updates.availableToastTitle", "Update available"),
+          t("settings.updates.availableToastBody", "Version {version} is ready to install.", { version: result.version }),
+        );
+      } else {
+        toast.info(
+          t("settings.updates.upToDateToastTitle", "Up to date"),
+          t("settings.updates.upToDateToastBody", "No newer release was found at the configured endpoint."),
+        );
+      }
     },
     onError: (cause) => {
       setUpdateResult(undefined);
-      toast.error("Update check failed", toApiError(cause).message);
+      toast.error(t("settings.updates.checkFailed", "Update check failed"), toApiError(cause).message);
     },
   });
 
   const install = useMutation({
     mutationFn: api.installUpdate,
     onSuccess: () => {
-      toast.success("Update installed", "BITS AI Video Creator is restarting.");
+      toast.success(t("settings.updates.installedTitle", "Update installed"), t("settings.updates.installedBody", "BITS AI Video Creator is restarting."));
       setInstallOpen(false);
     },
     onError: (cause) => {
       setInstallOpen(false);
-      toast.error("Update installation failed", toApiError(cause).message);
+      toast.error(t("settings.updates.installFailed", "Update installation failed"), toApiError(cause).message);
     },
   });
 
   const unlink = useMutation({
     mutationFn: api.unlinkLicense,
     onSuccess: () => {
-      toast.success("Lisensi Diputus", "Hubungkan lisensi lagi untuk melanjutkan.");
+      toast.success(t("settings.license.unlinkedTitle", "License unlinked"), t("settings.license.unlinkedBody", "Connect your license again to continue."));
       setUnlinkOpen(false);
       void queryClient.invalidateQueries({ queryKey: ["license"] });
     },
-    onError: (cause) => toast.error("Gagal Memutus Lisensi", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.license.unlinkFailed", "Unable to unlink license"), toApiError(cause).message),
   });
 
   const refreshLicense = useMutation({
@@ -562,15 +709,15 @@ function IntegrationsTab({
       queryClient.setQueryData(["license"], next);
       void queryClient.invalidateQueries({ queryKey: ["license"] });
     },
-    onError: (cause) => toast.error("Gagal Menyegarkan Lisensi", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.license.refreshFailed", "Unable to refresh license"), toApiError(cause).message),
   });
 
   const copy = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
+      toast.success(t("settings.labelCopied", "{label} copied", { label }));
     } catch {
-      toast.error("Clipboard unavailable");
+      toast.error(t("settings.clipboardUnavailable", "Clipboard unavailable"));
     }
   };
 
@@ -586,16 +733,22 @@ function IntegrationsTab({
     <div className="mt-4 grid gap-4 xl:grid-cols-2">
       <Card>
         <CardHeader
-          title="AI workflow drafts"
-          description="Any OpenAI-compatible chat endpoint. Generated drafts are validated and never saved automatically."
+          title={t("settings.ai.title", "AI workflow drafts")}
+          description={t(
+            "settings.ai.description",
+            "Any OpenAI-compatible chat endpoint. Generated drafts are validated and never saved automatically.",
+          )}
           actions={
             <Badge tone={aiKeyConfigured ? "success" : "warning"} dot>
-              {aiKeyConfigured ? "API key stored" : "No API key"}
+              {aiKeyConfigured ? t("settings.ai.keyStored", "API key stored") : t("settings.ai.noKey", "No API key")}
             </Badge>
           }
         />
         <div className="space-y-4 p-4">
-          <Field label="Endpoint" hint="Example: https://api.openai.com/v1. HTTP requires local-network opt-in.">
+          <Field
+            label={t("settings.ai.endpoint", "Endpoint")}
+            hint={t("settings.ai.endpointHint", "Example: https://api.openai.com/v1. HTTP requires local-network opt-in.")}
+          >
             <Input
               value={draft.aiEndpoint}
               onChange={(event) => patch({ aiEndpoint: event.target.value })}
@@ -605,7 +758,7 @@ function IntegrationsTab({
               disabled={android}
             />
           </Field>
-          <Field label="Model" hint="Provider model identifier, up to 100 characters.">
+          <Field label={t("settings.ai.model", "Model")} hint={t("settings.ai.modelHint", "Provider model identifier, up to 100 characters.")}>
             <Input
               value={draft.aiModel}
               onChange={(event) => patch({ aiModel: event.target.value })}
@@ -615,10 +768,18 @@ function IntegrationsTab({
             />
           </Field>
           <div className="rounded-lg border border-line/70 bg-surface/50 p-3 text-[10.5px] leading-4 text-muted">
-            Add a secret named <span className="font-mono text-fg">ai.api_key</span> in the Secrets tab. The key is
-            sent only to the configured endpoint and is never returned to the interface.
+            {t("settings.ai.secretHintPrefix", "Add a secret named")}{" "}
+            <span className="font-mono text-fg">ai.api_key</span>{" "}
+            {t(
+              "settings.ai.secretHintSuffix",
+              "in the Secrets tab. The key is sent only to the configured endpoint and is never returned to the interface.",
+            )}
           </div>
-          <Field label="HTTP proxy URL" optional hint="Used by workflow HTTP nodes and AI drafts, not provider webviews.">
+          <Field
+            label={t("settings.ai.proxyUrl", "HTTP proxy URL")}
+            optional
+            hint={t("settings.ai.proxyUrlHint", "Used by workflow HTTP nodes and AI drafts, not provider webviews.")}
+          >
             <Input
               value={draft.httpProxyUrl ?? ""}
               onChange={(event) => patch({ httpProxyUrl: event.target.value.trim() || null })}
@@ -629,7 +790,7 @@ function IntegrationsTab({
             />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Proxy username" optional>
+            <Field label={t("settings.ai.proxyUsername", "Proxy username")} optional>
               <Input
                 value={draft.httpProxyUsername ?? ""}
                 onChange={(event) => patch({ httpProxyUsername: event.target.value.trim() || null })}
@@ -637,7 +798,7 @@ function IntegrationsTab({
                 spellCheck={false}
               />
             </Field>
-            <Field label="Proxy password" optional hint="Write-only; saved to the OS keyring.">
+            <Field label={t("settings.ai.proxyPassword", "Proxy password")} optional hint={t("settings.ai.proxyPasswordHint", "Write-only; saved to the OS keyring.")}>
               <Input
                 type="password"
                 value={proxyPassword}
@@ -654,27 +815,37 @@ function IntegrationsTab({
             loading={saveProxy.isPending}
             onClick={() => saveProxy.mutate()}
           >
-            {proxyPassword ? "Save proxy password" : "Remove saved proxy password"}
+            {proxyPassword
+              ? t("settings.ai.saveProxyPassword", "Save proxy password")
+              : t("settings.ai.removeProxyPassword", "Remove saved proxy password")}
           </Button>
           <p className="text-[9.5px] leading-4 text-faint">
-            Proxy credentials are not shown again. Leave the URL empty to connect directly. The engine rejects
-            destination hostnames that resolve to private addresses when a proxy is configured.
+            {t(
+              "settings.ai.proxyNote",
+              "Proxy credentials are not shown again. Leave the URL empty to connect directly. The engine rejects destination hostnames that resolve to private addresses when a proxy is configured.",
+            )}
           </p>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title="Voiceover provider"
-          description="Optional OpenAI-compatible speech endpoint for downloadable voice tracks. Browser preview works without a key."
+          title={t("settings.tts.title", "Voiceover provider")}
+          description={t(
+            "settings.tts.description",
+            "Optional OpenAI-compatible speech endpoint for downloadable voice tracks. Browser preview works without a key.",
+          )}
           actions={
             <Badge tone={ttsKeyConfigured ? "success" : "warning"} dot>
-              {ttsKeyConfigured ? "TTS key ready" : "No TTS key"}
+              {ttsKeyConfigured ? t("settings.tts.keyReady", "TTS key ready") : t("settings.tts.noKey", "No TTS key")}
             </Badge>
           }
         />
         <div className="space-y-4 p-4">
-          <Field label="Endpoint" hint="Example: https://api.openai.com/v1. The app calls /audio/speech.">
+          <Field
+            label={t("settings.tts.endpoint", "Endpoint")}
+            hint={t("settings.tts.endpointHint", "Example: https://api.openai.com/v1. The app calls /audio/speech.")}
+          >
             <Input
               value={draft.ttsEndpoint}
               onChange={(event) => patch({ ttsEndpoint: event.target.value })}
@@ -685,7 +856,7 @@ function IntegrationsTab({
             />
           </Field>
           <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="Model">
+            <Field label={t("settings.tts.model", "Model")}>
               <Input
                 value={draft.ttsModel}
                 onChange={(event) => patch({ ttsModel: event.target.value })}
@@ -694,7 +865,7 @@ function IntegrationsTab({
                 maxLength={100}
               />
             </Field>
-            <Field label="Voice">
+            <Field label={t("settings.tts.voice", "Voice")}>
               <Input
                 value={draft.ttsVoice}
                 onChange={(event) => patch({ ttsVoice: event.target.value })}
@@ -703,7 +874,7 @@ function IntegrationsTab({
                 maxLength={160}
               />
             </Field>
-            <Field label="Output format">
+            <Field label={t("settings.tts.format", "Output format")}>
               <Select
                 value={draft.ttsFormat}
                 onChange={(event) => patch({ ttsFormat: event.target.value })}
@@ -715,7 +886,7 @@ function IntegrationsTab({
                 ))}
               </Select>
             </Field>
-            <Field label="Speed" hint="0.25–4.0">
+            <Field label={t("settings.tts.speed", "Speed")} hint={t("settings.tts.speedHint", "0.25–4.0")}>
               <Input
                 type="number"
                 min={0.25}
@@ -732,20 +903,32 @@ function IntegrationsTab({
             </Field>
           </div>
           <div className="rounded-lg border border-line/70 bg-surface/50 p-3 text-[10.5px] leading-4 text-muted">
-            Add a secret named <span className="font-mono text-fg">tts.api_key</span> in the Secrets tab. If that
-            secret is absent, the app falls back to <span className="font-mono text-fg">ai.api_key</span>. The
-            provider receives only the scene text and voice settings; nothing is generated without a key.
+            {t("settings.tts.secretHint1", "Add a secret named")}{" "}
+            <span className="font-mono text-fg">tts.api_key</span>{" "}
+            {t("settings.tts.secretHint2", "in the Secrets tab. If that secret is absent, the app falls back to")}{" "}
+            <span className="font-mono text-fg">ai.api_key</span>
+            {t(
+              "settings.tts.secretHint3",
+              ". The provider receives only the scene text and voice settings; nothing is generated without a key.",
+            )}
           </div>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title="Local HTTP API"
-          description="Loopback-only control surface for trusted local clients. Requires a bearer token."
+          title={t("settings.localApi.title", "Local HTTP API")}
+          description={t(
+            "settings.localApi.description",
+            "Loopback-only control surface for trusted local clients. Requires a bearer token.",
+          )}
           actions={
             <Badge tone={localStatus?.running ? "success" : localStatus?.enabled ? "warning" : "neutral"} dot>
-              {localStatus?.running ? "running" : localStatus?.enabled ? "configured" : "off"}
+              {localStatus?.running
+                ? t("status.running", "running")
+                : localStatus?.enabled
+                  ? t("status.configured", "configured")
+                  : t("status.off", "off")}
             </Badge>
           }
         />
@@ -753,10 +936,10 @@ function IntegrationsTab({
           <Toggle
             checked={draft.localApiEnabled}
             onChange={(value) => patch({ localApiEnabled: value })}
-            label="Enable local API"
-            description="Binds to 127.0.0.1 only. Changes apply when settings are saved."
+            label={t("settings.localApi.enable", "Enable local API")}
+            description={t("settings.localApi.enableDesc", "Binds to 127.0.0.1 only. Changes apply when settings are saved.")}
           />
-          <Field label="Port" hint="1,024–65,535. Default 47,821.">
+          <Field label={t("settings.localApi.port", "Port")} hint={t("settings.localApi.portHint", "1,024–65,535. Default 47,821.")}>
             <Input
               type="number"
               min={1024}
@@ -768,17 +951,18 @@ function IntegrationsTab({
           </Field>
           <div className="rounded-lg border border-line/70 bg-surface/50 p-3 text-[10.5px] leading-4 text-muted">
             <div className="flex items-center justify-between gap-2">
-              <span className="text-faint">Base URL</span>
+              <span className="text-faint">{t("settings.localApi.baseUrl", "Base URL")}</span>
               <button
                 type="button"
                 className="font-mono text-[10px] text-fg hover:text-accent"
-                onClick={() => void copy(localStatus?.baseUrl ?? `http://127.0.0.1:${draft.localApiPort}`, "Base URL")}
+                onClick={() => void copy(localStatus?.baseUrl ?? `http://127.0.0.1:${draft.localApiPort}`, t("settings.localApi.baseUrl", "Base URL"))}
               >
                 {localStatus?.baseUrl ?? `http://127.0.0.1:${draft.localApiPort}`}
               </button>
             </div>
             <p className="mt-2 text-[10px] leading-4">
-              Routes: <span className="font-mono">GET /v1/health</span>,{" "}
+              {t("settings.localApi.routes", "Routes:")}{" "}
+              <span className="font-mono">GET /v1/health</span>,{" "}
               <span className="font-mono">GET /v1/dashboard</span>,{" "}
               <span className="font-mono">GET /v1/runs</span>,{" "}
               <span className="font-mono">POST /v1/workflows/&#123;id&#125;/runs</span>.
@@ -797,7 +981,7 @@ function IntegrationsTab({
               loading={reveal.isPending}
               onClick={() => reveal.mutate()}
             >
-              Reveal token
+              {t("settings.localApi.reveal", "Reveal token")}
             </Button>
             <Button
               size="sm"
@@ -806,7 +990,7 @@ function IntegrationsTab({
               loading={rotate.isPending}
               onClick={() => rotate.mutate()}
             >
-              Rotate token
+              {t("settings.localApi.rotate", "Rotate token")}
             </Button>
           </div>
           {revealedToken ? (
@@ -814,12 +998,14 @@ function IntegrationsTab({
               <p className="text-[9.5px] uppercase tracking-[0.1em] text-warn">Bearer token</p>
               <div className="mt-1.5 flex items-center gap-2">
                 <code className="min-w-0 flex-1 break-all font-mono text-[10px] leading-4 text-fg">{revealedToken}</code>
-                <Button size="sm" variant="ghost" icon={<Copy size={12} />} onClick={() => void copy(revealedToken, "Token")}>
-                  Copy
+                <Button size="sm" variant="ghost" icon={<Copy size={12} />} onClick={() => void copy(revealedToken, t("settings.localApi.token", "Token"))}>
+                  {t("common.copy", "Copy")}
                 </Button>
               </div>
               <p className="mt-1.5 text-[9.5px] leading-4 text-faint">
-                Send <span className="font-mono">Authorization: Bearer …</span>. CORS is deliberately disabled.
+                {t("settings.localApi.bearerHintPrefix", "Send")}{" "}
+                <span className="font-mono">Authorization: Bearer …</span>.{" "}
+                {t("settings.localApi.bearerHintSuffix", "CORS is deliberately disabled.")}
               </p>
             </div>
           ) : null}
@@ -828,18 +1014,27 @@ function IntegrationsTab({
 
       <Card>
         <CardHeader
-          title="Application updates"
+          title={t("settings.updates.title", "Application updates")}
           description={
             android
-              ? "Android updates are delivered as newer signed APK releases on GitHub. In-app updates are desktop-only."
-              : "Signed Tauri updates from an HTTPS manifest endpoint. The update public key is built into this binary."
+              ? t(
+                  "settings.updates.androidDesc",
+                  "Android updates are delivered as newer signed APK releases on GitHub. In-app updates are desktop-only.",
+                )
+              : t(
+                  "settings.updates.desktopDesc",
+                  "Signed Tauri updates from an HTTPS manifest endpoint. The update public key is built into this binary.",
+                )
           }
         />
         <div className="space-y-4 p-4">
           <Field
-            label="Update manifest URL"
+            label={t("settings.updates.manifestUrl", "Update manifest URL")}
             optional
-            hint="Standalone Tauri update JSON. Empty disables update checks. The owner must publish this endpoint."
+            hint={t(
+              "settings.updates.manifestUrlHint",
+              "Standalone Tauri update JSON. Empty disables update checks. The owner must publish this endpoint.",
+            )}
           >
             <Input
               value={draft.updateEndpoint ?? ""}
@@ -859,17 +1054,21 @@ function IntegrationsTab({
               disabled={android}
               onClick={() => check.mutate()}
             >
-              Check now
+              {t("settings.updates.checkNow", "Check now")}
             </Button>
             <span className="text-[9.5px] text-faint">
-              {android ? "Install a newer signed APK from GitHub Releases." : "Uses the saved settings values."}
+              {android
+                ? t("settings.updates.androidHint", "Install a newer signed APK from GitHub Releases.")
+                : t("settings.updates.desktopHint", "Uses the saved settings values.")}
             </span>
           </div>
           {updateResult ? (
             <div className="rounded-lg border border-accent/25 bg-accent/[0.045] p-3">
-              <p className="text-xs font-medium text-fg">Version {updateResult.version} is available</p>
+              <p className="text-xs font-medium text-fg">
+                {t("settings.updates.available", "Version {version} is available", { version: updateResult.version })}
+              </p>
               <p className="mt-1 text-[10px] text-faint">
-                Current {updateResult.currentVersion}
+                {t("settings.updates.current", "Current")} {updateResult.currentVersion}
                 {updateResult.date ? ` · ${updateResult.date}` : ""}
               </p>
               {updateResult.body ? (
@@ -878,29 +1077,37 @@ function IntegrationsTab({
                 </p>
               ) : null}
               <Button className="mt-3" size="sm" variant="primary" onClick={() => setInstallOpen(true)}>
-                Download and install
+                {t("settings.updates.downloadInstall", "Download and install")}
               </Button>
             </div>
           ) : updateResult === null ? (
             <p className="rounded-lg border border-line/70 bg-surface/50 p-3 text-[10.5px] text-muted">
-              This installation is up to date.
+              {t("settings.updates.upToDate", "This installation is up to date.")}
             </p>
           ) : null}
           <p className="text-[9.5px] leading-4 text-faint">
-            Update artifacts are verified with the embedded public key. Unsigned or mismatched artifacts are
-            rejected. The release owner must sign every build with the matching private key.
+            {t(
+              "settings.updates.note",
+              "Update artifacts are verified with the embedded public key. Unsigned or mismatched artifacts are rejected. The release owner must sign every build with the matching private key.",
+            )}
           </p>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title="Lisensi"
-          description="Lisensi terhubung ke BITS License Manager dan terikat pada perangkat ini."
+          title={t("settings.license.title", "License")}
+          description={t(
+            "settings.license.description",
+            "The license is linked to BITS License Manager and bound to this device.",
+          )}
           actions={
             licenseMeta ? (
               <Badge tone={licenseMeta.tone} dot>
-                {licenseMeta.label}
+                {t(
+                  `license.status.${licenseState?.status ?? ""}`,
+                  LICENSE_STATUS_FALLBACK[licenseState?.status ?? "licensed"],
+                )}
               </Badge>
             ) : null
           }
@@ -908,35 +1115,35 @@ function IntegrationsTab({
         <div className="space-y-3 p-4">
           {license.isLoading ? (
             <div className="flex items-center gap-2 text-xs text-muted">
-              <Loader2 size={13} className="animate-spin" /> Memuat lisensi…
+              <Loader2 size={13} className="animate-spin" /> {t("settings.license.loading", "Loading license…")}
             </div>
           ) : licenseState ? (
             <>
               <dl className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Paket</dt>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">{t("settings.license.plan", "Plan")}</dt>
                   <dd className="mt-1 text-[11px] text-fg">{licenseState.plan ?? "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">ID Lisensi</dt>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">{t("settings.license.licenseId", "License ID")}</dt>
                   <dd className="mt-1 truncate font-mono text-[11px] text-fg" title={licenseState.licenseId ?? undefined}>
                     {licenseState.licenseId ? truncate(licenseState.licenseId, 14) : "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Perangkat</dt>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">{t("settings.license.device", "Device")}</dt>
                   <dd className="mt-1 truncate font-mono text-[11px] text-muted" title={licenseState.deviceId ?? undefined}>
                     {licenseState.deviceId ? truncate(licenseState.deviceId, 12) : "—"}
                   </dd>
                 </div>
                 <div>
-                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">Terakhir Disinkronkan</dt>
+                  <dt className="text-[9.5px] uppercase tracking-[0.08em] text-faint">{t("settings.license.lastSynced", "Last synced")}</dt>
                   <dd className="mt-1 text-[11px] text-fg">{relativeTime(licenseState.lastSyncedAt)}</dd>
                 </div>
               </dl>
               {licenseState.entitlements.length > 0 ? (
                 <div>
-                  <SectionLabel>Hak Akses</SectionLabel>
+                  <SectionLabel>{t("settings.license.entitlements", "Entitlements")}</SectionLabel>
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {licenseState.entitlements.map((entitlement) => (
                       <Badge key={entitlement} tone="neutral">
@@ -959,10 +1166,10 @@ function IntegrationsTab({
                   loading={refreshLicense.isPending}
                   onClick={() => refreshLicense.mutate()}
                 >
-                  Segarkan
+                  {t("common.refresh", "Refresh")}
                 </Button>
                 <Button size="sm" variant="danger" icon={<Unlink size={12} />} onClick={() => setUnlinkOpen(true)}>
-                  Putuskan
+                  {t("settings.license.unlink", "Unlink")}
                 </Button>
               </div>
             </>
@@ -972,15 +1179,19 @@ function IntegrationsTab({
 
       <ConfirmDialog
         open={installOpen}
-        title="Install update"
+        title={t("settings.updates.installConfirmTitle", "Install update")}
         description={
           <>
-            BITS AI Video Creator will download version <strong className="text-fg">{updateResult?.version}</strong>, verify its
-            signature, install it, and restart. Save any open workflow changes first.
+            {t("settings.updates.installConfirmPrefix", "BITS AI Video Creator will download version")}{" "}
+            <strong className="text-fg">{updateResult?.version}</strong>{" "}
+            {t(
+              "settings.updates.installConfirmSuffix",
+              ", verify its signature, install it, and restart. Save any open workflow changes first.",
+            )}
           </>
         }
         confirmationLabel={updateResult?.version ?? ""}
-        confirmLabel="Install and restart"
+        confirmLabel={t("settings.updates.installConfirmButton", "Install and restart")}
         busy={install.isPending}
         tone="primary"
         onConfirm={() => install.mutate()}
@@ -989,9 +1200,12 @@ function IntegrationsTab({
 
       <ConfirmDialog
         open={unlinkOpen}
-        title="Putuskan Lisensi"
-        description="Token perangkat ini akan dicabut dan cache lisensi dihapus. Ruang kerja akan terkunci hingga Anda menghubungkan lisensi lagi."
-        confirmLabel="Putuskan"
+        title={t("settings.license.unlinkConfirmTitle", "Unlink license")}
+        description={t(
+          "settings.license.unlinkConfirmDescription",
+          "The device token will be revoked and the license cache cleared. The workspace stays locked until you connect a license again.",
+        )}
+        confirmLabel={t("settings.license.unlink", "Unlink")}
         busy={unlink.isPending}
         onConfirm={() => unlink.mutate()}
         onClose={() => setUnlinkOpen(false)}
@@ -1006,6 +1220,7 @@ function SpinnerInline() {
 
 function SecretsTab() {
   const toast = useToast();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
@@ -1019,7 +1234,10 @@ function SecretsTab() {
   const create = useMutation({
     mutationFn: () => api.setSecret(name.trim(), value),
     onSuccess: (reference) => {
-      toast.success("Secret stored", `${reference.name} is held by the operating system credential store.`);
+      toast.success(
+        t("settings.secrets.storedTitle", "Secret stored"),
+        t("settings.secrets.storedBody", "{name} is held by the operating system credential store.", { name: reference.name }),
+      );
       setName("");
       setValue("");
       setVisible(false);
@@ -1032,11 +1250,11 @@ function SecretsTab() {
   const remove = useMutation({
     mutationFn: (secretName: string) => api.deleteSecret(secretName, secretName),
     onSuccess: (_result, secretName) => {
-      toast.success("Secret deleted", secretName);
+      toast.success(t("settings.secrets.deletedTitle", "Secret deleted"), secretName);
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["secrets"] });
     },
-    onError: (cause) => toast.error("Unable to delete secret", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.secrets.deleteFailed", "Unable to delete secret"), toApiError(cause).message),
   });
 
   const available = status.data?.available ?? false;
@@ -1045,12 +1263,12 @@ function SecretsTab() {
     <div className="mt-4 grid gap-4 xl:grid-cols-[1fr_1.1fr]">
       <Card>
         <CardHeader
-          title="Add secret"
-          description="Values are written once and never returned to the interface."
+          title={t("settings.secrets.addTitle", "Add secret")}
+          description={t("settings.secrets.addDescription", "Values are written once and never returned to the interface.")}
           actions={
             status.data ? (
               <Badge tone={available ? "success" : "danger"} dot>
-                {available ? "Vault available" : "Vault unavailable"}
+                {available ? t("settings.secrets.vaultAvailable", "Vault available") : t("settings.secrets.vaultUnavailable", "Vault unavailable")}
               </Badge>
             ) : null
           }
@@ -1060,16 +1278,21 @@ function SecretsTab() {
             <div className="flex gap-2.5 rounded-lg border border-warn/25 bg-warn/[0.04] p-3">
               <AlertTriangle size={15} className="mt-0.5 shrink-0 text-warn" />
               <div className="text-[10.5px] leading-4 text-muted">
-                <p className="font-medium text-warn">OS credential store is unavailable.</p>
+                <p className="font-medium text-warn">{t("settings.secrets.vaultUnavailableWarning", "OS credential store is unavailable.")}</p>
                 <p className="mt-1">{status.data?.message ?? status.error?.message}</p>
                 <p className="mt-1">
-                  Secret-backed workflows cannot run until a supported keyring is available. No plaintext fallback
-                  is used.
+                  {t(
+                    "settings.secrets.vaultUnavailableBody",
+                    "Secret-backed workflows cannot run until a supported keyring is available. No plaintext fallback is used.",
+                  )}
                 </p>
               </div>
             </div>
           ) : null}
-          <Field label="Name" hint="1–64 characters: letters, numbers, ., _, -. Referenced as {{secrets.name}}.">
+          <Field
+            label={t("settings.secrets.nameLabel", "Name")}
+            hint={t("settings.secrets.nameHint", "1–64 characters: letters, numbers, ., _, -. Referenced as {reference}.", { reference: "{{secrets.name}}" })}
+          >
             <Input
               value={name}
               onChange={(event) => {
@@ -1082,7 +1305,7 @@ function SecretsTab() {
               disabled={!available}
             />
           </Field>
-          <Field label="Value" hint="Up to 16 KB. Values are trimmed and stored in the OS vault.">
+          <Field label={t("settings.secrets.valueLabel", "Value")} hint={t("settings.secrets.valueHint", "Up to 16 KB. Values are trimmed and stored in the OS vault.")}>
             <div className="relative">
               <Input
                 type={visible ? "text" : "password"}
@@ -1091,13 +1314,13 @@ function SecretsTab() {
                   setValue(event.target.value);
                   setError(null);
                 }}
-                placeholder="Paste the secret value"
+                placeholder={t("settings.secrets.valuePlaceholder", "Paste the secret value")}
                 className="pr-10 font-mono text-xs"
                 autoComplete="new-password"
                 disabled={!available}
               />
               <IconButton
-                label={visible ? "Hide secret value" : "Show secret value"}
+                label={visible ? t("settings.secrets.hideValue", "Hide secret value") : t("settings.secrets.showValue", "Show secret value")}
                 size="sm"
                 className="absolute right-1 top-1/2 -translate-y-1/2"
                 onClick={() => setVisible((current) => !current)}
@@ -1114,37 +1337,39 @@ function SecretsTab() {
             disabled={!available || !name.trim() || !value.trim()}
             onClick={() => create.mutate()}
           >
-            Store secret
+            {t("settings.secrets.store", "Store secret")}
           </Button>
           <p className="text-[10px] leading-4 text-faint">
-            BITS AI Video Creator exposes no command to read secret values. The engine resolves them only while executing a
-            step, and logs are redacted.
+            {t(
+              "settings.secrets.note",
+              "BITS AI Video Creator exposes no command to read secret values. The engine resolves them only while executing a step, and logs are redacted.",
+            )}
           </p>
         </div>
       </Card>
 
       <Card>
         <CardHeader
-          title="Stored secret references"
-          description="Only names and timestamps are stored in SQLite."
+          title={t("settings.secrets.listTitle", "Stored secret references")}
+          description={t("settings.secrets.listDescription", "Only names and timestamps are stored in SQLite.")}
           actions={
             <Button size="sm" variant="ghost" icon={<RefreshCw size={12} />} onClick={() => void secrets.refetch()}>
-              Refresh
+              {t("common.refresh", "Refresh")}
             </Button>
           }
         />
         {secrets.isLoading ? (
           <div className="flex items-center gap-2 p-4 text-xs text-muted">
-            <Loader2 size={13} className="animate-spin" /> Loading references…
+            <Loader2 size={13} className="animate-spin" /> {t("settings.secrets.loading", "Loading references…")}
           </div>
         ) : secrets.isError ? (
           <p className="p-4 text-xs text-danger">{secrets.error.message}</p>
         ) : secrets.data?.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <ShieldCheck size={20} className="mx-auto text-faint" />
-            <p className="mt-2 text-xs font-medium text-fg">No secrets stored</p>
+            <p className="mt-2 text-xs font-medium text-fg">{t("settings.secrets.emptyTitle", "No secrets stored")}</p>
             <p className="mt-1 text-[10.5px] leading-4 text-faint">
-              Add one on the left. Secret names are exported; values are never exported.
+              {t("settings.secrets.emptyBody", "Add one on the left. Secret names are exported; values are never exported.")}
             </p>
           </div>
         ) : (
@@ -1154,10 +1379,16 @@ function SecretsTab() {
                 <div className="min-w-0">
                   <p className="truncate font-mono text-[11.5px] text-fg">{secret.name}</p>
                   <p className="mt-0.5 text-[9.5px] text-faint">
-                    updated {relativeTime(secret.updatedAt)} · created {formatDateTime(secret.createdAt)}
+                    {t("settings.secrets.updated", "updated")} {relativeTime(secret.updatedAt)} ·{" "}
+                    {t("settings.secrets.created", "created")} {formatDateTime(secret.createdAt)}
                   </p>
                 </div>
-                <IconButton label={`Delete secret ${secret.name}`} tone="danger" size="sm" onClick={() => setDeleteTarget(secret.name)}>
+                <IconButton
+                  label={t("settings.secrets.deleteAria", "Delete secret {name}", { name: secret.name })}
+                  tone="danger"
+                  size="sm"
+                  onClick={() => setDeleteTarget(secret.name)}
+                >
                   <Trash2 size={13} />
                 </IconButton>
               </li>
@@ -1168,15 +1399,19 @@ function SecretsTab() {
 
       <ConfirmDialog
         open={deleteTarget != null}
-        title="Delete secret"
+        title={t("settings.secrets.deleteTitle", "Delete secret")}
         description={
           <>
-            This removes <strong className="text-fg">{deleteTarget}</strong> from the operating system credential
-            store. Workflows referencing it will fail until the secret is re-added. This cannot be undone.
+            {t("settings.secrets.deleteConfirmPrefix", "This removes")}{" "}
+            <strong className="text-fg">{deleteTarget}</strong>{" "}
+            {t(
+              "settings.secrets.deleteConfirmSuffix",
+              "from the operating system credential store. Workflows referencing it will fail until the secret is re-added. This cannot be undone.",
+            )}
           </>
         }
         confirmationLabel={deleteTarget ?? ""}
-        confirmLabel="Delete secret"
+        confirmLabel={t("settings.secrets.deleteTitle", "Delete secret")}
         busy={remove.isPending}
         onConfirm={() => {
           if (deleteTarget) remove.mutate(deleteTarget);
@@ -1189,6 +1424,7 @@ function SecretsTab() {
 
 function DataTab() {
   const toast = useToast();
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [importPath, setImportPath] = useState("");
   const [strategy, setStrategy] = useState<DuplicateStrategy>("skip");
@@ -1200,9 +1436,9 @@ function DataTab() {
   const copy = async (value: string, label: string) => {
     try {
       await navigator.clipboard.writeText(value);
-      toast.success(`${label} copied`);
+      toast.success(t("settings.labelCopied", "{label} copied", { label }));
     } catch {
-      toast.error("Clipboard unavailable");
+      toast.error(t("settings.clipboardUnavailable", "Clipboard unavailable"));
     }
   };
 
@@ -1212,27 +1448,33 @@ function DataTab() {
   const createBackup = useMutation({
     mutationFn: api.createBackup,
     onSuccess: (info) => {
-      toast.success("Backup created", `${info.path} · integrity ${info.integrity}`);
+      toast.success(
+        t("settings.data.backupCreatedTitle", "Backup created"),
+        t("settings.data.backupCreatedBody", "{path} · integrity {integrity}", { path: info.path, integrity: info.integrity }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["backups"] });
       void queryClient.invalidateQueries({ queryKey: ["storage"] });
     },
-    onError: (cause) => toast.error("Unable to create backup", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.data.backupFailed", "Unable to create backup"), toApiError(cause).message),
   });
 
   const verify = useMutation({
     mutationFn: (path: string) => api.verifyBackup(path),
-    onSuccess: (integrity, path) => toast.success("Backup verified", `${path.split(/[\\/]/).pop()} · ${integrity}`),
-    onError: (cause) => toast.error("Backup verification failed", toApiError(cause).message),
+    onSuccess: (integrity, path) => toast.success(t("settings.data.backupVerifiedTitle", "Backup verified"), `${path.split(/[\\/]/).pop()} · ${integrity}`),
+    onError: (cause) => toast.error(t("settings.data.verifyFailed", "Backup verification failed"), toApiError(cause).message),
   });
 
   const stageRestore = useMutation({
     mutationFn: (path: string) => api.stageRestore(path),
     onSuccess: () => {
-      toast.success("Restore staged", "Quit and reopen BITS AI Video Creator to apply the restored database.");
+      toast.success(
+        t("settings.data.restoreStagedTitle", "Restore staged"),
+        t("settings.data.restoreStagedBody", "Quit and reopen BITS AI Video Creator to apply the restored database."),
+      );
       setRestorePath(null);
       void queryClient.invalidateQueries({ queryKey: ["backups"] });
     },
-    onError: (cause) => toast.error("Unable to stage restore", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.data.stageRestoreFailed", "Unable to stage restore"), toApiError(cause).message),
   });
 
   const chooseImport = async () => {
@@ -1248,7 +1490,7 @@ function DataTab() {
         setImportError(null);
       }
     } catch (cause) {
-      toast.error("Unable to open file picker", toApiError(cause).message);
+      toast.error(t("settings.data.filePickerFailed", "Unable to open file picker"), toApiError(cause).message);
     }
   };
 
@@ -1268,8 +1510,17 @@ function DataTab() {
     mutationFn: () => api.importApply(importPath, strategy),
     onSuccess: (result) => {
       toast.success(
-        "Import completed",
-        `${result.imported} imported · ${result.replaced} replaced · ${result.skipped} skipped · ${result.errors.length} notices`,
+        t("settings.data.importCompletedTitle", "Import completed"),
+        t(
+          "settings.data.importCompletedBody",
+          "{imported} imported · {replaced} replaced · {skipped} skipped · {notices} notices",
+          {
+            imported: result.imported,
+            replaced: result.replaced,
+            skipped: result.skipped,
+            notices: result.errors.length,
+          },
+        ),
       );
       setPreview(null);
       setConfirmApply(false);
@@ -1280,7 +1531,7 @@ function DataTab() {
     },
     onError: (cause) => {
       setConfirmApply(false);
-      toast.error("Import failed", toApiError(cause).message);
+      toast.error(t("settings.data.importFailed", "Import failed"), toApiError(cause).message);
     },
   });
 
@@ -1294,9 +1545,9 @@ function DataTab() {
       return api.exportData(path).then((bytes) => ({ path, bytes }));
     },
     onSuccess: (result) => {
-      if (result) toast.success("Export written", `${result.path} · ${formatBytes(result.bytes)}`);
+      if (result) toast.success(t("settings.data.exportWrittenTitle", "Export written"), `${result.path} · ${formatBytes(result.bytes)}`);
     },
-    onError: (cause) => toast.error("Unable to export data", toApiError(cause).message),
+    onError: (cause) => toast.error(t("settings.data.exportFailed", "Unable to export data"), toApiError(cause).message),
   });
 
   const chooseRestoreFile = async () => {
@@ -1310,7 +1561,7 @@ function DataTab() {
         setRestorePath(path);
       }
     } catch (cause) {
-      toast.error("Unable to open file picker", toApiError(cause).message);
+      toast.error(t("settings.data.filePickerFailed", "Unable to open file picker"), toApiError(cause).message);
     }
   };
 
@@ -1319,27 +1570,35 @@ function DataTab() {
       <div className="grid gap-4 xl:grid-cols-2">
         <Card>
           <CardHeader
-            title="Export"
-            description="Accounts, workflows, schedules, and secret names. Secret values are never exported."
+            title={t("settings.data.exportTitle", "Export")}
+            description={t(
+              "settings.data.exportDescription",
+              "Accounts, workflows, schedules, and secret names. Secret values are never exported.",
+            )}
           />
           <div className="p-4">
             <Button variant="primary" icon={<Download size={14} />} loading={exportData.isPending} onClick={() => exportData.mutate()}>
-              Export data…
+              {t("settings.data.exportButton", "Export data…")}
             </Button>
             <p className="mt-3 text-[10.5px] leading-4 text-faint">
-              Output is a versioned JSON document. Accounts and workflows are validated during import, never silently
-              coerced.
+              {t(
+                "settings.data.exportNote",
+                "Output is a versioned JSON document. Accounts and workflows are validated during import, never silently coerced.",
+              )}
             </p>
           </div>
         </Card>
 
         <Card>
           <CardHeader
-            title="Import"
-            description="BITS AI Video Creator exports and legacy BITS AI Video Creator 1.x account files are supported."
+            title={t("settings.data.importTitle", "Import")}
+            description={t(
+              "settings.data.importDescription",
+              "BITS AI Video Creator exports and legacy BITS AI Video Creator 1.x account files are supported.",
+            )}
             actions={
               <Button size="sm" variant="secondary" icon={<Upload size={12} />} onClick={() => void chooseImport()}>
-                Choose file
+                {t("settings.data.chooseFile", "Choose file")}
               </Button>
             }
           />
@@ -1347,12 +1606,12 @@ function DataTab() {
             <Input
               value={importPath}
               readOnly
-              placeholder="No file selected"
+              placeholder={t("settings.data.noFileSelected", "No file selected")}
               className="font-mono text-[10.5px] text-muted"
-              aria-label="Import file path"
+              aria-label={t("settings.data.importPathAria", "Import file path")}
             />
             <div className="flex flex-wrap items-end gap-2">
-              <Field label="Duplicate strategy" className="min-w-[180px] flex-1">
+              <Field label={t("settings.data.duplicateStrategy", "Duplicate strategy")} className="min-w-[180px] flex-1">
                 <Select
                   value={strategy}
                   onChange={(event) => {
@@ -1360,9 +1619,9 @@ function DataTab() {
                     setPreview(null);
                   }}
                 >
-                  <option value="skip">Skip duplicates</option>
-                  <option value="replace">Replace duplicates</option>
-                  <option value="duplicate">Keep both (rename)</option>
+                  <option value="skip">{t("settings.data.strategySkip", "Skip duplicates")}</option>
+                  <option value="replace">{t("settings.data.strategyReplace", "Replace duplicates")}</option>
+                  <option value="duplicate">{t("settings.data.strategyKeepBoth", "Keep both (rename)")}</option>
                 </Select>
               </Field>
               <Button
@@ -1371,7 +1630,7 @@ function DataTab() {
                 disabled={!importPath}
                 onClick={() => runPreview.mutate()}
               >
-                Preview
+                {t("settings.data.preview", "Preview")}
               </Button>
               <Button
                 variant="primary"
@@ -1382,7 +1641,7 @@ function DataTab() {
                   else applyImport.mutate();
                 }}
               >
-                Apply import
+                {t("settings.data.applyImport", "Apply import")}
               </Button>
             </div>
             {importError ? (
@@ -1394,9 +1653,9 @@ function DataTab() {
               <div className="space-y-2">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge tone="info">{preview.kind}</Badge>
-                  <Badge tone="neutral">{preview.total} records</Badge>
-                  <Badge tone={preview.valid > 0 ? "success" : "danger"}>{preview.valid} valid</Badge>
-                  <Badge tone={preview.duplicates > 0 ? "warning" : "neutral"}>{preview.duplicates} duplicates</Badge>
+                  <Badge tone="neutral">{t("settings.data.recordCount", "{count} records", { count: preview.total })}</Badge>
+                  <Badge tone={preview.valid > 0 ? "success" : "danger"}>{t("settings.data.validCount", "{count} valid", { count: preview.valid })}</Badge>
+                  <Badge tone={preview.duplicates > 0 ? "warning" : "neutral"}>{t("settings.data.duplicateCount", "{count} duplicates", { count: preview.duplicates })}</Badge>
                 </div>
                 {preview.errors.length > 0 ? (
                   <ul className="max-h-24 space-y-1 overflow-y-auto rounded-lg border border-line/70 bg-surface/50 p-2">
@@ -1428,31 +1687,34 @@ function DataTab() {
 
       <Card>
         <CardHeader
-          title="Backups"
-          description="Consistent SQLite snapshots stored in the local backup directory. Integrity is checked when a backup is created."
+          title={t("settings.data.backupsTitle", "Backups")}
+          description={t(
+            "settings.data.backupsDescription",
+            "Consistent SQLite snapshots stored in the local backup directory. Integrity is checked when a backup is created.",
+          )}
           actions={
             <>
               <Button size="sm" variant="secondary" icon={<ArchiveRestore size={12} />} onClick={() => void chooseRestoreFile()}>
-                Restore file…
+                {t("settings.data.restoreFile", "Restore file…")}
               </Button>
               <Button size="sm" variant="primary" icon={<Database size={12} />} loading={createBackup.isPending} onClick={() => createBackup.mutate()}>
-                Create backup
+                {t("settings.data.createBackup", "Create backup")}
               </Button>
             </>
           }
         />
         {backups.isLoading ? (
           <div className="flex items-center gap-2 p-4 text-xs text-muted">
-            <Loader2 size={13} className="animate-spin" /> Loading backups…
+            <Loader2 size={13} className="animate-spin" /> {t("settings.data.loadingBackups", "Loading backups…")}
           </div>
         ) : backups.isError ? (
           <p className="p-4 text-xs text-danger">{backups.error.message}</p>
         ) : backups.data?.length === 0 ? (
           <div className="px-4 py-8 text-center">
             <HardDrive size={20} className="mx-auto text-faint" />
-            <p className="mt-2 text-xs font-medium text-fg">No backups yet</p>
+            <p className="mt-2 text-xs font-medium text-fg">{t("settings.data.noBackupsTitle", "No backups yet")}</p>
             <p className="mt-1 text-[10.5px] leading-4 text-faint">
-              Create a snapshot before restoring or making large structural changes.
+              {t("settings.data.noBackupsBody", "Create a snapshot before restoring or making large structural changes.")}
             </p>
           </div>
         ) : (
@@ -1460,10 +1722,10 @@ function DataTab() {
             <table className="w-full min-w-[760px] border-collapse text-left">
               <thead>
                 <tr className="border-b border-line/70 text-[10px] uppercase tracking-[0.08em] text-faint">
-                  <th className="px-4 py-2 font-medium">File</th>
-                  <th className="px-3 py-2 font-medium">Created</th>
-                  <th className="px-3 py-2 font-medium">Size</th>
-                  <th className="px-3 py-2 font-medium">Integrity</th>
+                  <th className="px-4 py-2 font-medium">{t("settings.data.colFile", "File")}</th>
+                  <th className="px-3 py-2 font-medium">{t("settings.data.colCreated", "Created")}</th>
+                  <th className="px-3 py-2 font-medium">{t("settings.data.colSize", "Size")}</th>
+                  <th className="px-3 py-2 font-medium">{t("settings.data.colIntegrity", "Integrity")}</th>
                   <th className="px-3 py-2" />
                 </tr>
               </thead>
@@ -1482,10 +1744,10 @@ function DataTab() {
                     <td className="px-3 py-2.5">
                       <div className="flex items-center justify-end gap-1">
                         <Button size="sm" variant="ghost" loading={verify.isPending && verify.variables === backup.path} onClick={() => verify.mutate(backup.path)}>
-                          Verify
+                          {t("settings.data.verify", "Verify")}
                         </Button>
                         <Button size="sm" variant="secondary" onClick={() => setRestorePath(backup.path)}>
-                          Restore
+                          {t("settings.data.restoreButton", "Restore")}
                         </Button>
                       </div>
                     </td>
@@ -1496,19 +1758,21 @@ function DataTab() {
           </div>
         )}
         <p className="border-t border-line/60 px-4 py-3 text-[10px] leading-4 text-faint">
-          Restore is staged and applied on the next launch. The current database is copied to a
-          “bits-ai-video-creator-before-restore” file before replacement.
+          {t(
+            "settings.data.restoreNote",
+            "Restore is staged and applied on the next launch. The current database is copied to a “bits-ai-video-creator-before-restore” file before replacement.",
+          )}
         </p>
       </Card>
 
       <Card>
         <CardHeader
-          title="Local storage"
-          description="Paths and database size reported by the running shell."
+          title={t("settings.data.storageTitle", "Local storage")}
+          description={t("settings.data.storageDescription", "Paths and database size reported by the running shell.")}
           actions={
             storage.data ? (
-              <Button size="sm" variant="ghost" icon={<FolderOpen size={12} />} onClick={() => void openPath(storage.data.dataDir).catch((cause) => toast.error("Unable to open folder", String(cause)))}>
-                Open folder
+              <Button size="sm" variant="ghost" icon={<FolderOpen size={12} />} onClick={() => void openPath(storage.data.dataDir).catch((cause) => toast.error(t("settings.data.openFolderFailed", "Unable to open folder"), String(cause)))}>
+                {t("settings.data.openFolder", "Open folder")}
               </Button>
             ) : null
           }
@@ -1516,55 +1780,64 @@ function DataTab() {
         {storage.data ? (
           <div className="grid gap-4 p-4 sm:grid-cols-2">
             <div>
-              <SectionLabel>Data directory</SectionLabel>
-              <button type="button" onClick={() => void copy(storage.data.dataDir, "Data path")} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
+              <SectionLabel>{t("settings.data.dataDir", "Data directory")}</SectionLabel>
+              <button type="button" onClick={() => void copy(storage.data.dataDir, t("settings.data.dataPath", "Data path"))} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
                 {storage.data.dataDir}
               </button>
             </div>
             <div>
-              <SectionLabel>Database</SectionLabel>
-              <button type="button" onClick={() => void copy(storage.data.databasePath, "Database path")} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
+              <SectionLabel>{t("settings.data.database", "Database")}</SectionLabel>
+              <button type="button" onClick={() => void copy(storage.data.databasePath, t("settings.data.databasePath", "Database path"))} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
                 {storage.data.databasePath}
               </button>
             </div>
             <div>
-              <SectionLabel>Backup directory</SectionLabel>
-              <button type="button" onClick={() => void copy(storage.data.backupDir, "Backup path")} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
+              <SectionLabel>{t("settings.data.backupDir", "Backup directory")}</SectionLabel>
+              <button type="button" onClick={() => void copy(storage.data.backupDir, t("settings.data.backupPath", "Backup path"))} className="mt-1 block break-all text-left font-mono text-[10px] leading-4 text-muted hover:text-fg">
                 {storage.data.backupDir}
               </button>
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <SectionLabel>Size</SectionLabel>
+                <SectionLabel>{t("settings.data.size", "Size")}</SectionLabel>
                 <p className="numeric mt-1 text-[11px] text-fg">{formatBytes(storage.data.databaseBytes)}</p>
               </div>
               <div>
-                <SectionLabel>Schema</SectionLabel>
+                <SectionLabel>{t("settings.about.schema", "Schema")}</SectionLabel>
                 <p className="numeric mt-1 text-[11px] text-fg">v{storage.data.schemaVersion}</p>
               </div>
             </div>
           </div>
         ) : (
           <div className="flex items-center gap-2 p-4 text-xs text-muted">
-            <Loader2 size={13} className="animate-spin" /> Loading storage information…
+            <Loader2 size={13} className="animate-spin" /> {t("settings.data.loadingStorage", "Loading storage information…")}
           </div>
         )}
       </Card>
 
       <ConfirmDialog
         open={confirmApply}
-        title="Replace duplicate records?"
+        title={t("settings.data.replaceConfirmTitle", "Replace duplicate records?")}
         description={
           <>
-            The “replace” strategy overwrites fields on existing accounts and replaces existing workflow definitions
-            with the imported versions. The preview found{" "}
+            {t(
+              "settings.data.replaceConfirmPrefix",
+              "The “replace” strategy overwrites fields on existing accounts and replaces existing workflow definitions with the imported versions. The preview found",
+            )}{" "}
             <strong className="text-fg">{preview?.duplicates ?? 0}</strong>{" "}
-            duplicate{preview?.duplicates === 1 ? "" : "s"}. Account and workflow ids are kept, so local run history is
-            preserved. Secret values are never overwritten or imported.
+            {preview?.duplicates === 1
+              ? t(
+                  "settings.data.replaceConfirmSuffixOne",
+                  "duplicate. Account and workflow ids are kept, so local run history is preserved. Secret values are never overwritten or imported.",
+                )
+              : t(
+                  "settings.data.replaceConfirmSuffixMany",
+                  "duplicates. Account and workflow ids are kept, so local run history is preserved. Secret values are never overwritten or imported.",
+                )}
           </>
         }
         confirmationLabel="replace"
-        confirmLabel="Replace and import"
+        confirmLabel={t("settings.data.replaceConfirmButton", "Replace and import")}
         busy={applyImport.isPending}
         tone="danger"
         onConfirm={() => applyImport.mutate()}
@@ -1573,18 +1846,19 @@ function DataTab() {
 
       <ConfirmDialog
         open={restorePath != null}
-        title="Stage database restore"
+        title={t("settings.data.stageRestoreTitle", "Stage database restore")}
         description={
           <>
-            BITS AI Video Creator will verify{" "}
-            <strong className="text-fg">{restorePath?.split(/[\\/]/).pop()}</strong> and stage it for the next
-            launch. On restart, the current database is backed up and replaced. Accounts, workflows, run history, logs,
-            and settings will come from the selected file. Secret values are not included. Close other sessions before
-            restarting.
+            {t("settings.data.stageRestorePrefix", "BITS AI Video Creator will verify")}{" "}
+            <strong className="text-fg">{restorePath?.split(/[\\/]/).pop()}</strong>{" "}
+            {t(
+              "settings.data.stageRestoreSuffix",
+              "and stage it for the next launch. On restart, the current database is backed up and replaced. Accounts, workflows, run history, logs, and settings will come from the selected file. Secret values are not included. Close other sessions before restarting.",
+            )}
           </>
         }
         confirmationLabel="restore"
-        confirmLabel="Stage restore"
+        confirmLabel={t("settings.data.stageRestoreButton", "Stage restore")}
         busy={stageRestore.isPending}
         tone="danger"
         onConfirm={() => {

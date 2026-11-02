@@ -1,3 +1,4 @@
+import { translate } from "../i18n";
 import type {
   NodeType,
   ScheduleInput,
@@ -18,70 +19,42 @@ export interface NodeCatalogItem {
   category: NodeCategory;
 }
 
+/**
+ * Labels resolve through translate() on every access (getters, not stored
+ * strings) so a language switch applies without reloading the module.
+ */
+function catalogItem(
+  type: NodeType,
+  category: NodeCategory,
+  label: string,
+  short: string,
+  description: string,
+): NodeCatalogItem {
+  return {
+    type,
+    category,
+    get label() {
+      return translate(`workflow.node.${type}.label`, label);
+    },
+    get short() {
+      return translate(`workflow.node.${type}.short`, short);
+    },
+    get description() {
+      return translate(`workflow.node.${type}.description`, description);
+    },
+  };
+}
+
 export const NODE_CATALOG: NodeCatalogItem[] = [
-  {
-    type: "trigger.manual",
-    label: "Manual trigger",
-    short: "Manual",
-    description: "Start only when a person runs this workflow.",
-    category: "trigger",
-  },
-  {
-    type: "trigger.schedule",
-    label: "Schedule trigger",
-    short: "Schedule",
-    description: "Start on a cron schedule in a chosen timezone.",
-    category: "trigger",
-  },
-  {
-    type: "action.http",
-    label: "HTTP request",
-    short: "HTTP",
-    description: "Call an API with templated headers, body, and timeout.",
-    category: "action",
-  },
-  {
-    type: "action.account_check",
-    label: "Account check",
-    short: "Account",
-    description: "Read a provider account's local status.",
-    category: "action",
-  },
-  {
-    type: "action.delay",
-    label: "Delay",
-    short: "Delay",
-    description: "Pause for a bounded number of seconds.",
-    category: "action",
-  },
-  {
-    type: "action.log",
-    label: "Write log",
-    short: "Log",
-    description: "Add a redacted entry to the run log.",
-    category: "action",
-  },
-  {
-    type: "transform.template",
-    label: "Template",
-    short: "Template",
-    description: "Compose text or JSON from inputs, steps, and secrets.",
-    category: "logic",
-  },
-  {
-    type: "logic.condition",
-    label: "Condition",
-    short: "Condition",
-    description: "Branch true or false using a typed comparison.",
-    category: "logic",
-  },
-  {
-    type: "error.retry",
-    label: "Retry policy",
-    short: "Retry",
-    description: "Set bounded retries for subsequent HTTP/account steps.",
-    category: "control",
-  },
+  catalogItem("trigger.manual", "trigger", "Manual trigger", "Manual", "Start only when a person runs this workflow."),
+  catalogItem("trigger.schedule", "trigger", "Schedule trigger", "Schedule", "Start on a cron schedule in a chosen timezone."),
+  catalogItem("action.http", "action", "HTTP request", "HTTP", "Call an API with templated headers, body, and timeout."),
+  catalogItem("action.account_check", "action", "Account check", "Account", "Read a provider account's local status."),
+  catalogItem("action.delay", "action", "Delay", "Delay", "Pause for a bounded number of seconds."),
+  catalogItem("action.log", "action", "Write log", "Log", "Add a redacted entry to the run log."),
+  catalogItem("transform.template", "logic", "Template", "Template", "Compose text or JSON from inputs, steps, and secrets."),
+  catalogItem("logic.condition", "logic", "Condition", "Condition", "Branch true or false using a typed comparison."),
+  catalogItem("error.retry", "control", "Retry policy", "Retry", "Set bounded retries for subsequent HTTP/account steps."),
 ];
 
 export const NODE_MAP = new Map(NODE_CATALOG.map((item) => [item.type, item]));
@@ -133,29 +106,41 @@ export function nodeSummary(node: WorkflowNode): string {
   const config = node.config ?? {};
   switch (node.type) {
     case "trigger.schedule": {
-      const cron = typeof config.cron === "string" ? config.cron : "Not configured";
+      const cron =
+        typeof config.cron === "string" ? config.cron : translate("workflow.summary.notConfigured", "Not configured");
       const timezone = typeof config.timezone === "string" ? config.timezone : "UTC";
       return `${cron} · ${timezone}`;
     }
     case "action.http": {
       const method = typeof config.method === "string" ? config.method : "GET";
-      const url = typeof config.url === "string" ? config.url : "No URL";
+      const url = typeof config.url === "string" ? config.url : translate("workflow.summary.noUrl", "No URL");
       return `${method} ${url}`;
     }
     case "action.account_check":
-      return config.accountId ? "Check selected account" : "Choose an account";
+      return config.accountId
+        ? translate("workflow.summary.checkSelectedAccount", "Check selected account")
+        : translate("workflow.summary.chooseAccount", "Choose an account");
     case "action.delay":
-      return `Wait ${String(config.seconds ?? 5)} seconds`;
+      return translate("workflow.summary.waitSeconds", "Wait {seconds} seconds", {
+        seconds: String(config.seconds ?? 5),
+      });
     case "action.log":
-      return typeof config.message === "string" ? config.message : "Log message";
+      return typeof config.message === "string"
+        ? config.message
+        : translate("workflow.summary.logMessage", "Log message");
     case "transform.template":
-      return config.format === "json" ? "Build JSON output" : "Build text output";
+      return config.format === "json"
+        ? translate("workflow.summary.buildJson", "Build JSON output")
+        : translate("workflow.summary.buildText", "Build text output");
     case "logic.condition":
       return `${String(config.left ?? "")} ${String(config.operator ?? "equals")} ${String(config.right ?? "")}`;
     case "error.retry":
-      return `${String(config.attempts ?? 0)} retries · ${String(config.delayMs ?? 0)} ms`;
+      return translate("workflow.summary.retries", "{attempts} retries · {delay} ms", {
+        attempts: String(config.attempts ?? 0),
+        delay: String(config.delayMs ?? 0),
+      });
     default:
-      return "Manual start";
+      return translate("workflow.summary.manualStart", "Manual start");
   }
 }
 
@@ -276,12 +261,42 @@ export function autoLayout(definition: WorkflowDefinition): Record<string, { x: 
 }
 
 export const CRON_PRESETS = [
-  { label: "Every 5 minutes", value: "0 */5 * * * *" },
-  { label: "Every hour", value: "0 0 * * * *" },
-  { label: "Daily at 09:00", value: "0 9 * * * *" },
-  { label: "Weekdays at 09:00", value: "0 9 * * Mon-Fri" },
-  { label: "Mondays at 09:00", value: "0 9 * * Mon" },
-  { label: "First day of month", value: "0 9 1 * * *" },
+  {
+    get label() {
+      return translate("workflow.cron.every5Minutes", "Every 5 minutes");
+    },
+    value: "0 */5 * * * *",
+  },
+  {
+    get label() {
+      return translate("workflow.cron.everyHour", "Every hour");
+    },
+    value: "0 0 * * * *",
+  },
+  {
+    get label() {
+      return translate("workflow.cron.daily0900", "Daily at 09:00");
+    },
+    value: "0 9 * * * *",
+  },
+  {
+    get label() {
+      return translate("workflow.cron.weekdays0900", "Weekdays at 09:00");
+    },
+    value: "0 9 * * Mon-Fri",
+  },
+  {
+    get label() {
+      return translate("workflow.cron.mondays0900", "Mondays at 09:00");
+    },
+    value: "0 9 * * Mon",
+  },
+  {
+    get label() {
+      return translate("workflow.cron.firstOfMonth", "First day of month");
+    },
+    value: "0 9 1 * * *",
+  },
 ];
 
 export function timezoneOptions(current: string): string[] {

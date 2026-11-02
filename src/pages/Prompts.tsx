@@ -29,18 +29,19 @@ import {
   Toggle,
   cn,
 } from "../components/ui";
+import { useI18n } from "../i18n";
 import { api, toApiError } from "../lib/api";
 import { formatDateTime } from "../lib/format";
 import type { Prompt, PromptInput } from "../lib/types";
 
 const COLORS = [
-  { id: "default", label: "Neutral", className: "border-line/80 bg-panel" },
-  { id: "blue", label: "Blue", className: "border-info/30 bg-info/[0.045]" },
-  { id: "green", label: "Green", className: "border-accent/30 bg-accent/[0.045]" },
-  { id: "amber", label: "Amber", className: "border-warn/30 bg-warn/[0.045]" },
-  { id: "violet", label: "Violet", className: "border-violet-400/30 bg-violet-400/[0.05]" },
-  { id: "rose", label: "Rose", className: "border-rose-400/30 bg-rose-400/[0.05]" },
-  { id: "slate", label: "Slate", className: "border-slate-400/25 bg-slate-400/[0.04]" },
+  { id: "default", labelKey: "prompts.colorNeutral", label: "Neutral", className: "border-line/80 bg-panel" },
+  { id: "blue", labelKey: "prompts.colorBlue", label: "Blue", className: "border-info/30 bg-info/[0.045]" },
+  { id: "green", labelKey: "prompts.colorGreen", label: "Green", className: "border-accent/30 bg-accent/[0.045]" },
+  { id: "amber", labelKey: "prompts.colorAmber", label: "Amber", className: "border-warn/30 bg-warn/[0.045]" },
+  { id: "violet", labelKey: "prompts.colorViolet", label: "Violet", className: "border-violet-400/30 bg-violet-400/[0.05]" },
+  { id: "rose", labelKey: "prompts.colorRose", label: "Rose", className: "border-rose-400/30 bg-rose-400/[0.05]" },
+  { id: "slate", labelKey: "prompts.colorSlate", label: "Slate", className: "border-slate-400/25 bg-slate-400/[0.04]" },
 ] as const;
 
 function colorClass(color: string): string {
@@ -58,6 +59,7 @@ function PromptModal({
   categories: string[];
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState("");
@@ -89,7 +91,10 @@ function PromptModal({
       return prompt ? api.updatePrompt(prompt.id, input) : api.createPrompt(input);
     },
     onSuccess: (saved) => {
-      toast.success(prompt ? "Prompt updated" : "Prompt created", saved.title);
+      toast.success(
+        prompt ? t("prompts.updatedToast", "Prompt updated") : t("prompts.createdToast", "Prompt created"),
+        saved.title,
+      );
       void queryClient.invalidateQueries({ queryKey: ["prompts"] });
       onClose();
     },
@@ -101,13 +106,16 @@ function PromptModal({
       open={open}
       onClose={save.isPending ? () => undefined : onClose}
       closeOnBackdrop={!save.isPending}
-      title={prompt ? "Edit prompt" : "New prompt"}
-      description="Prompts are local reference text. They are never sent anywhere unless you paste them into a tool or workflow."
+      title={prompt ? t("prompts.modalEditTitle", "Edit prompt") : t("prompts.modalNewTitle", "New prompt")}
+      description={t(
+        "prompts.modalDescription",
+        "Prompts are local reference text. They are never sent anywhere unless you paste them into a tool or workflow.",
+      )}
       size="lg"
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={save.isPending}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="primary"
@@ -115,13 +123,13 @@ function PromptModal({
             disabled={!title.trim() || !body.trim()}
             onClick={() => save.mutate()}
           >
-            {prompt ? "Save changes" : "Create prompt"}
+            {prompt ? t("prompts.saveChanges", "Save changes") : t("prompts.create", "Create prompt")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
-        <Field label="Title" hint={`${title.length}/200 characters`}>
+        <Field label={t("prompts.titleLabel", "Title")} hint={t("prompts.titleHint", "{count}/200 characters", { count: title.length })}>
           <Input
             value={title}
             onChange={(event) => {
@@ -129,11 +137,11 @@ function PromptModal({
               setError(null);
             }}
             maxLength={200}
-            placeholder="Cinematic product shot"
+            placeholder={t("prompts.titlePlaceholder", "Cinematic product shot")}
             autoFocus
           />
         </Field>
-        <Field label="Prompt" hint={`${body.length}/100,000 characters`}>
+        <Field label={t("prompts.bodyLabel", "Prompt")} hint={t("prompts.bodyHint", "{count}/100,000 characters", { count: body.length })}>
           <Textarea
             value={body}
             onChange={(event) => {
@@ -142,17 +150,17 @@ function PromptModal({
             }}
             rows={10}
             maxLength={100_000}
-            placeholder="Describe the prompt, including reusable variables and constraints."
+            placeholder={t("prompts.bodyPlaceholder", "Describe the prompt, including reusable variables and constraints.")}
             className="min-h-[220px] font-mono text-[12px] leading-5"
           />
         </Field>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Category" hint="Optional. Up to 100 characters.">
+          <Field label={t("prompts.categoryLabel", "Category")} hint={t("prompts.categoryHint", "Optional. Up to 100 characters.")}>
             <Input
               value={category}
               onChange={(event) => setCategory(event.target.value)}
               maxLength={100}
-              placeholder="Video"
+              placeholder={t("prompts.categoryPlaceholder", "Video")}
               list="prompt-categories"
             />
             <datalist id="prompt-categories">
@@ -161,11 +169,11 @@ function PromptModal({
               ))}
             </datalist>
           </Field>
-          <Field label="Card color">
+          <Field label={t("prompts.colorLabel", "Card color")}>
             <Select value={cardColor} onChange={(event) => setCardColor(event.target.value)}>
               {COLORS.map((color) => (
                 <option key={color.id} value={color.id}>
-                  {color.label}
+                  {t(color.labelKey, color.label)}
                 </option>
               ))}
             </Select>
@@ -174,8 +182,8 @@ function PromptModal({
         <Toggle
           checked={pinned}
           onChange={setPinned}
-          label="Pin to the top"
-          description="Pinned prompts stay above the rest of the library."
+          label={t("prompts.pinToggle", "Pin to the top")}
+          description={t("prompts.pinToggleDesc", "Pinned prompts stay above the rest of the library.")}
         />
         {error ? (
           <p className="rounded-lg border border-danger/25 bg-danger/5 p-3 text-xs leading-5 text-danger">{error}</p>
@@ -186,6 +194,7 @@ function PromptModal({
 }
 
 export function PromptsPage() {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [query, setQuery] = useState("");
@@ -220,20 +229,23 @@ export function PromptsPage() {
   const togglePin = useMutation({
     mutationFn: (item: Prompt) => api.setPromptPinned(item.id, !item.pinned),
     onSuccess: (item) => {
-      toast.success(item.pinned ? "Prompt pinned" : "Prompt unpinned", item.title);
+      toast.success(
+        item.pinned ? t("prompts.pinnedToast", "Prompt pinned") : t("prompts.unpinnedToast", "Prompt unpinned"),
+        item.title,
+      );
       void queryClient.invalidateQueries({ queryKey: ["prompts"] });
     },
-    onError: (cause) => toast.error("Unable to update prompt", toApiError(cause).message),
+    onError: (cause) => toast.error(t("prompts.updateError", "Unable to update prompt"), toApiError(cause).message),
   });
 
   const remove = useMutation({
     mutationFn: (item: Prompt) => api.deletePrompt(item.id),
     onSuccess: (_result, item) => {
-      toast.success("Prompt deleted", item.title);
+      toast.success(t("prompts.deletedToast", "Prompt deleted"), item.title);
       setDeleteTarget(null);
       void queryClient.invalidateQueries({ queryKey: ["prompts"] });
     },
-    onError: (cause) => toast.error("Unable to delete prompt", toApiError(cause).message),
+    onError: (cause) => toast.error(t("prompts.deleteError", "Unable to delete prompt"), toApiError(cause).message),
   });
 
   const copy = async (item: Prompt) => {
@@ -242,7 +254,7 @@ export function PromptsPage() {
       setCopiedId(item.id);
       window.setTimeout(() => setCopiedId((current) => (current === item.id ? null : current)), 1800);
     } catch {
-      toast.error("Clipboard unavailable", "Select and copy the prompt text manually.");
+      toast.error(t("prompts.clipboardError", "Clipboard unavailable"), t("prompts.clipboardErrorDesc", "Select and copy the prompt text manually."));
     }
   };
 
@@ -254,12 +266,15 @@ export function PromptsPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Library"
-        title="Prompt library"
-        description="Reusable local prompts for provider tools and AI drafting. Values stay in SQLite and are never uploaded."
+        eyebrow={t("prompts.eyebrow", "Library")}
+        title={t("page.prompts", "Prompt library")}
+        description={t(
+          "prompts.description",
+          "Reusable local prompts for provider tools and AI drafting. Values stay in SQLite and are never uploaded.",
+        )}
         actions={
           <Button variant="primary" icon={<Plus size={15} />} onClick={openCreate}>
-            New prompt
+            {t("prompts.new", "New prompt")}
           </Button>
         }
       />
@@ -270,18 +285,18 @@ export function PromptsPage() {
           <Input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search titles, prompt text, categories…"
+            placeholder={t("prompts.searchPlaceholder", "Search titles, prompt text, categories…")}
             className="h-9 pl-8"
-            aria-label="Search prompts"
+            aria-label={t("prompts.searchAria", "Search prompts")}
           />
         </div>
         <Select
           value={category}
           onChange={(event) => setCategory(event.target.value)}
           className="h-9 w-[190px]"
-          aria-label="Filter by category"
+          aria-label={t("prompts.filterCategoryAria", "Filter by category")}
         >
-          <option value="">All categories</option>
+          <option value="">{t("prompts.allCategories", "All categories")}</option>
           {categories.map((item) => (
             <option key={item} value={item}>
               {item}
@@ -289,7 +304,7 @@ export function PromptsPage() {
           ))}
         </Select>
         <span className="numeric text-[10px] text-faint">
-          {visible.length} of {prompts.data?.length ?? 0}
+          {t("prompts.visibleOf", "{visible} of {total}", { visible: visible.length, total: prompts.data?.length ?? 0 })}
         </span>
       </div>
 
@@ -305,15 +320,15 @@ export function PromptsPage() {
         <Card className="mt-4">
           <EmptyState
             icon={<BookOpenText size={20} />}
-            title={prompts.data?.length ? "No matching prompts" : "Your library is empty"}
+            title={prompts.data?.length ? t("prompts.emptyFiltered", "No matching prompts") : t("prompts.emptyTitle", "Your library is empty")}
             description={
               prompts.data?.length
-                ? "Adjust the search or category filter."
-                : "Save a reusable prompt once, then copy it into a provider tool or use it as a starting point for AI drafting."
+                ? t("prompts.emptyFilteredDesc", "Adjust the search or category filter.")
+                : t("prompts.emptyDesc", "Save a reusable prompt once, then copy it into a provider tool or use it as a starting point for AI drafting.")
             }
             action={
               <Button variant="primary" icon={<Plus size={14} />} onClick={openCreate}>
-                New prompt
+                {t("prompts.new", "New prompt")}
               </Button>
             }
           />
@@ -334,7 +349,11 @@ export function PromptsPage() {
                   </div>
                 </div>
                 <IconButton
-                  label={item.pinned ? `Unpin ${item.title}` : `Pin ${item.title}`}
+                  label={
+                    item.pinned
+                      ? t("prompts.unpinAria", "Unpin {title}", { title: item.title })
+                      : t("prompts.pinAria", "Pin {title}", { title: item.title })
+                  }
                   size="sm"
                   onClick={() => togglePin.mutate(item)}
                   disabled={togglePin.isPending}
@@ -346,13 +365,15 @@ export function PromptsPage() {
                 {item.prompt}
               </p>
               <div className="flex items-center justify-between gap-2 border-t border-line/50 px-3 py-2">
-                <span className="numeric text-[9.5px] text-faint">{item.prompt.length.toLocaleString()} chars</span>
+                <span className="numeric text-[9.5px] text-faint">
+                  {t("prompts.chars", "{count} chars", { count: item.prompt.length.toLocaleString() })}
+                </span>
                 <div className="flex items-center gap-1">
                   <Button size="sm" variant="ghost" icon={copiedId === item.id ? <Check size={12} /> : <Copy size={12} />} onClick={() => void copy(item)}>
-                    {copiedId === item.id ? "Copied" : "Copy"}
+                    {copiedId === item.id ? t("common.copied", "Copied") : t("common.copy", "Copy")}
                   </Button>
                   <IconButton
-                    label={`Edit ${item.title}`}
+                    label={t("prompts.editAria", "Edit {title}", { title: item.title })}
                     size="sm"
                     onClick={() => {
                       setEditing(item);
@@ -361,7 +382,7 @@ export function PromptsPage() {
                   >
                     <Pencil size={13} />
                   </IconButton>
-                  <IconButton label={`Delete ${item.title}`} size="sm" tone="danger" onClick={() => setDeleteTarget(item)}>
+                  <IconButton label={t("prompts.deleteAria", "Delete {title}", { title: item.title })} size="sm" tone="danger" onClick={() => setDeleteTarget(item)}>
                     <Trash2 size={13} />
                   </IconButton>
                 </div>
@@ -374,14 +395,14 @@ export function PromptsPage() {
       <PromptModal open={modalOpen} prompt={editing} categories={categories} onClose={() => setModalOpen(false)} />
       <ConfirmDialog
         open={deleteTarget != null}
-        title="Delete prompt"
+        title={t("prompts.deleteTitle", "Delete prompt")}
         description={
           <>
-            Permanently remove <strong className="text-fg">{deleteTarget?.title}</strong> from the local library. This
-            cannot be undone.
+            {t("prompts.deletePrefix", "Permanently remove")} <strong className="text-fg">{deleteTarget?.title}</strong>{" "}
+            {t("prompts.deleteSuffix", "from the local library. This cannot be undone.")}
           </>
         }
-        confirmLabel="Delete prompt"
+        confirmLabel={t("prompts.deleteTitle", "Delete prompt")}
         busy={remove.isPending}
         onConfirm={() => {
           if (deleteTarget) remove.mutate(deleteTarget);

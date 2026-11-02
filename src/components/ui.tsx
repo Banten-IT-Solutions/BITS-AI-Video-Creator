@@ -18,7 +18,8 @@ import {
   type TextareaHTMLAttributes,
 } from "react";
 import { createPortal } from "react-dom";
-import { humanStatus, statusTone, type Tone } from "../lib/format";
+import { defaultStatusLabel, statusTone, type Tone } from "../lib/format";
+import { useI18n } from "../i18n";
 
 export function cn(...values: Array<string | false | null | undefined>): string {
   return clsx(values);
@@ -179,9 +180,10 @@ export function Badge({
 }
 
 export function StatusBadge({ status, className }: { status: string; className?: string }) {
+  const { t } = useI18n();
   return (
     <Badge tone={statusTone(status)} dot className={className}>
-      {humanStatus(status)}
+      {t(`status.${status}`, defaultStatusLabel(status))}
     </Badge>
   );
 }
@@ -250,6 +252,7 @@ export function Field({
   className?: string;
   optional?: boolean;
 }) {
+  const { t } = useI18n();
   const generatedId = useId();
   const childId = isValidElement(children)
     ? (children.props as { id?: string }).id
@@ -280,7 +283,7 @@ export function Field({
         <label htmlFor={fieldId} className="text-[11px] font-medium uppercase tracking-[0.08em] text-muted">
           {label}
         </label>
-        {optional ? <span className="text-[10px] text-faint">optional</span> : null}
+        {optional ? <span className="text-[10px] text-faint">{t("ui.optional", "optional")}</span> : null}
       </div>
       {control}
       {error ? (
@@ -339,10 +342,11 @@ export function Toggle({
 }
 
 export function Spinner({ size = 16, className }: { size?: number; className?: string }) {
+  const { t } = useI18n();
   return (
     <span
       role="status"
-      aria-label="Loading"
+      aria-label={t("ui.loading", "Loading")}
       className={cn("inline-block animate-spin rounded-full border-2 border-current border-r-transparent", className)}
       style={{ width: size, height: size }}
     />
@@ -441,6 +445,7 @@ export function Modal({
   size?: "sm" | "md" | "lg" | "xl";
   closeOnBackdrop?: boolean;
 }) {
+  const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
   const titleId = useId();
   const descriptionId = useId();
@@ -520,7 +525,7 @@ export function Modal({
               </p>
             ) : null}
           </div>
-          <IconButton label="Close dialog" size="sm" onClick={onClose}>
+          <IconButton label={t("ui.closeDialog", "Close dialog")} size="sm" onClick={onClose}>
             <X size={16} />
           </IconButton>
         </div>
@@ -558,6 +563,7 @@ export function ConfirmDialog({
   confirmationLabel?: string;
 }) {
   const [confirmation, setConfirmation] = useState("");
+  const { t } = useI18n();
   useEffect(() => {
     if (open) setConfirmation("");
   }, [open]);
@@ -573,7 +579,7 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={busy}>
-            Cancel
+            {t("ui.cancel", "Cancel")}
           </Button>
           <Button
             variant={tone === "danger" ? "danger" : "primary"}
@@ -589,13 +595,16 @@ export function ConfirmDialog({
       <div className="space-y-4 text-sm leading-6 text-muted">
         <div>{description}</div>
         {confirmationLabel ? (
-          <Field label="Type to confirm" hint={`Enter “${confirmationLabel}” exactly.`}>
+          <Field
+            label={t("ui.typeToConfirm", "Type to confirm")}
+            hint={t("ui.confirmHint", "Enter “{value}” exactly.", { value: confirmationLabel })}
+          >
             <Input
               value={confirmation}
               onChange={(event) => setConfirmation(event.target.value)}
               autoComplete="off"
               spellCheck={false}
-              aria-label="Confirmation text"
+              aria-label={t("ui.confirmationText", "Confirmation text")}
             />
           </Field>
         ) : null}

@@ -6,6 +6,7 @@ import { LicenseGate } from "./components/LicenseGate";
 import { Button } from "./components/ui";
 import { api } from "./lib/api";
 import { useRoute } from "./lib/router";
+import { translate, useI18n } from "./i18n";
 import { AccountsPage } from "./pages/Accounts";
 import { DashboardPage } from "./pages/Dashboard";
 import { LogsPage } from "./pages/Logs";
@@ -55,21 +56,25 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
           <div className="w-full max-w-lg rounded-2xl border border-danger/30 bg-panel p-6 shadow-panel">
             <div className="flex items-center gap-3 text-danger">
               <AlertTriangle size={20} />
-              <h1 className="text-base font-semibold">The interface stopped unexpectedly</h1>
+              <h1 className="text-base font-semibold">
+                {translate("app.uiCrashedTitle", "The interface stopped unexpectedly")}
+              </h1>
             </div>
             <p className="mt-3 text-sm leading-6 text-muted">
-              Your local data was not modified by this error. Reload the interface to continue. If the problem
-              repeats, check the application logs from a fresh session.
+              {translate(
+                "app.uiCrashedBody",
+                "Your local data was not modified by this error. Reload the interface to continue. If the problem repeats, check the application logs from a fresh session.",
+              )}
             </p>
             <pre className="mt-4 max-h-40 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-surface p-3 font-mono text-[11px] text-muted">
               {this.state.error.message}
             </pre>
             <div className="mt-5 flex gap-2">
               <Button variant="primary" onClick={() => window.location.reload()}>
-                Reload interface
+                {translate("app.reloadInterface", "Reload interface")}
               </Button>
               <Button variant="ghost" onClick={() => this.setState({ error: null })}>
-                Dismiss
+                {translate("app.dismiss", "Dismiss")}
               </Button>
             </div>
           </div>
@@ -111,6 +116,7 @@ function CurrentPage() {
 }
 
 export function App() {
+  const { t } = useI18n();
   const settings = useQuery({ queryKey: ["settings"], queryFn: api.getSettings });
   const license = useQuery({
     queryKey: ["license"],
@@ -125,7 +131,8 @@ export function App() {
   if (license.isLoading) {
     return (
       <div className="flex h-full items-center justify-center bg-bg text-xs text-muted">
-        <Loader2 size={16} className="mr-2 animate-spin text-accent" /> Verifying license…
+        <Loader2 size={16} className="mr-2 animate-spin text-accent" />{" "}
+        {t("app.verifyingLicense", "Verifying license…")}
       </div>
     );
   }
@@ -136,16 +143,21 @@ export function App() {
         <div className="max-w-md rounded-2xl border border-danger/30 bg-panel p-6">
           <div className="flex items-center gap-2 text-danger">
             <ShieldAlert size={18} />
-            <h1 className="text-sm font-semibold">License state unavailable</h1>
+            <h1 className="text-sm font-semibold">
+              {t("app.licenseUnavailableTitle", "License state unavailable")}
+            </h1>
           </div>
           <p className="mt-2 text-xs leading-5 text-muted">
-            BITS AI Video Creator could not read its local license state. The workspace is blocked rather than guessing.
+            {t(
+              "app.licenseUnavailableBody",
+              "BITS AI Video Creator could not read its local license state. The workspace is blocked rather than guessing.",
+            )}
           </p>
           <pre className="mt-3 whitespace-pre-wrap break-words rounded-lg border border-line bg-surface p-3 font-mono text-[10px] text-muted">
             {license.error.message}
           </pre>
           <Button className="mt-4" variant="secondary" onClick={() => void license.refetch()}>
-            Retry
+            {t("app.retry", "Retry")}
           </Button>
         </div>
       </div>
@@ -159,7 +171,8 @@ export function App() {
           <Suspense
             fallback={
               <div className="flex h-full items-center justify-center p-10 text-xs text-muted">
-                <Loader2 size={15} className="mr-2 animate-spin text-accent" /> Loading editor…
+                <Loader2 size={15} className="mr-2 animate-spin text-accent" />{" "}
+                {t("app.loadingEditor", "Loading editor…")}
               </div>
             }
           >

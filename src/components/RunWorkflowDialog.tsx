@@ -3,6 +3,7 @@ import { Play, RefreshCw } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { api, toApiError } from "../lib/api";
 import { parseJsonObject, stringifyJson } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { Workflow, WorkflowSummary } from "../lib/types";
 import { useToast } from "./Toast";
 import { Button, Field, Modal, Textarea } from "./ui";
@@ -31,6 +32,7 @@ export function RunWorkflowDialog({
   onClose: () => void;
   onQueued?: (workflow: RunnableWorkflow) => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [text, setText] = useState("{}");
@@ -50,11 +52,11 @@ export function RunWorkflowDialog({
 
   const run = useMutation({
     mutationFn: async (target: RunnableWorkflow) => {
-      if (!parsed.ok) throw new Error(`Input is not valid JSON: ${parsed.error}`);
+      if (!parsed.ok) throw new Error(t("runs.invalidJsonThrow", "Input is not valid JSON: {error}", { error: parsed.error }));
       return api.runWorkflow(target.id, parsed.value, idempotencyKey.trim() || undefined);
     },
     onSuccess: (_created, submitted) => {
-      toast.success("Run queued", `${submitted.name} is waiting for an available worker.`);
+      toast.success(t("runs.runQueued", "Run queued"), t("runs.runQueuedBody", "{name} is waiting for an available worker.", { name: submitted.name }));
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       onQueued?.(submitted);
@@ -63,7 +65,7 @@ export function RunWorkflowDialog({
     onError: (cause) => {
       const apiError = toApiError(cause);
       setError(apiError.message);
-      toast.error("Unable to start run", apiError.message);
+      toast.error(t("runs.unableToStart", "Unable to start run"), apiError.message);
     },
   });
 
@@ -72,13 +74,16 @@ export function RunWorkflowDialog({
       open={open}
       onClose={run.isPending ? () => undefined : onClose}
       closeOnBackdrop={!run.isPending}
-      title={workflow ? `Run “${workflow.name}”` : "Run workflow"}
-      description="The run is queued locally and executed by the background engine. Secrets are resolved only inside the engine."
+      title={workflow ? t("runs.workflowTitle", "Run “{name}”", { name: workflow.name }) : t("runs.runWorkflow", "Run workflow")}
+      description={t(
+        "runs.workflowDialogDesc",
+        "The run is queued locally and executed by the background engine. Secrets are resolved only inside the engine.",
+      )}
       size="md"
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={run.isPending}>
-            Cancel
+            {t("common.cancel", "Cancel")}
           </Button>
           <Button
             variant="primary"
@@ -89,18 +94,18 @@ export function RunWorkflowDialog({
               if (workflow) run.mutate(workflow);
             }}
           >
-            Queue run
+            {t("runs.queueRun", "Queue run")}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <Field
-          label="Run input"
+          label={t("runs.runInput", "Run input")}
           hint={
             parsed.ok
-              ? "Provide a JSON value. Use {{input.name}} in templates to reference fields."
-              : `Invalid JSON: ${parsed.error}`
+              ? t("runs.runInputHint", "Provide a JSON value. Use {{input.name}} in templates to reference fields.")
+              : t("runs.invalidJson", "Invalid JSON: {error}", { error: parsed.error })
           }
         >
           <Textarea
@@ -109,7 +114,7 @@ export function RunWorkflowDialog({
             rows={9}
             spellCheck={false}
             className="font-mono text-xs leading-5"
-            aria-label="Run input JSON"
+            aria-label={t("runs.runInputAria", "Run input JSON")}
           />
         </Field>
 
@@ -120,9 +125,9 @@ export function RunWorkflowDialog({
             onClick={() => setShowAdvanced((value) => !value)}
             aria-expanded={showAdvanced}
           >
-            Idempotency key
+            {t("runs.idempotencyKey", "Idempotency key")}
             <span className="text-[10px] normal-case tracking-normal text-faint">
-              {showAdvanced ? "Hide" : "Show"}
+              {showAdvanced ? t("runs.hide", "Hide") : t("runs.show", "Show")}
             </span>
           </button>
           {showAdvanced ? (
@@ -132,16 +137,18 @@ export function RunWorkflowDialog({
                   value={idempotencyKey}
                   onChange={(event) => setIdempotencyKey(event.target.value)}
                   className="h-8 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2.5 font-mono text-[11px] text-fg focus:border-accent/60 focus:outline-none focus:ring-2 focus:ring-accent/15"
-                  aria-label="Idempotency key"
+                  aria-label={t("runs.idempotencyKey", "Idempotency key")}
                   spellCheck={false}
                 />
                 <Button size="sm" variant="secondary" icon={<RefreshCw size={12} />} onClick={() => setIdempotencyKey(newKey())}>
-                  New
+                  {t("runs.newKey", "New")}
                 </Button>
               </div>
               <p className="text-[10.5px] leading-4 text-faint">
-                While a run with this key is queued or running, a second submission is rejected. Leave blank to
-                allow duplicates.
+                {t(
+                  "runs.idempotencyHint",
+                  "While a run with this key is queued or running, a second submission is rejected. Leave blank to allow duplicates.",
+                )}
               </p>
             </div>
           ) : null}
@@ -153,7 +160,7 @@ export function RunWorkflowDialog({
 
         {parsed.ok ? (
           <details className="rounded-lg border border-line/70 bg-surface/40 px-3 py-2 text-xs text-muted">
-            <summary className="cursor-pointer text-[11px] text-faint">Preview normalized input</summary>
+            <summary className="cursor-pointer text-[11px] text-faint">{t("runs.previewInput", "Preview normalized input")}</summary>
             <pre className="mt-2 max-h-32 overflow-auto whitespace-pre-wrap break-words font-mono text-[10.5px] leading-5">
               {stringifyJson(parsed.value)}
             </pre>

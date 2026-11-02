@@ -2,8 +2,10 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { ExternalLink, KeyRound, Loader2, RefreshCw, ShieldAlert } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Badge, Button, Card, Field, Input } from "./ui";
+import { LanguageToggle } from "./LanguageToggle";
 import { api, toApiError } from "../lib/api";
 import { openExternal } from "../lib/platform";
+import { useI18n } from "../i18n";
 import type { LicenseState } from "../lib/types";
 
 export const LICENSE_PORTAL_URL = "https://license.bits.co.id/user/device-link";
@@ -13,9 +15,13 @@ function sanitizeCode(value: string): string {
 }
 
 function GateShell({ children }: { children: ReactNode }) {
+  const { t } = useI18n();
   return (
     <div className="flex min-h-full items-center justify-center overflow-y-auto bg-bg p-5 sm:p-8">
       <div className="w-full max-w-md">
+        <div className="mb-3 flex justify-end">
+          <LanguageToggle />
+        </div>
         <div className="mb-6 flex items-center gap-3">
           <span className="flex h-11 w-11 items-center justify-center rounded-xl border border-accent/30 bg-accent/10 text-accent">
             <KeyRound size={19} />
@@ -24,7 +30,9 @@ function GateShell({ children }: { children: ReactNode }) {
             <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-accent/80">
               BITS AI Video Creator
             </p>
-            <h1 className="text-xl font-semibold tracking-[-0.01em] text-fg">Lisensi</h1>
+            <h1 className="text-xl font-semibold tracking-[-0.01em] text-fg">
+              {t("license.title", "License")}
+            </h1>
           </div>
         </div>
         {children}
@@ -34,6 +42,7 @@ function GateShell({ children }: { children: ReactNode }) {
 }
 
 function PairingScreen() {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -51,14 +60,22 @@ function PairingScreen() {
   return (
     <Card className="overflow-hidden">
       <div className="border-b border-line/70 bg-warn/[0.035] px-5 py-4">
-        <h2 className="text-[13px] font-semibold tracking-[0.01em] text-fg">Hubungkan Lisensi</h2>
+        <h2 className="text-[13px] font-semibold tracking-[0.01em] text-fg">
+          {t("license.pairing.title", "Connect license")}
+        </h2>
         <p className="mt-1 text-[10.5px] leading-4 text-muted">
-          Masuk ke BITS License Manager di web, buka halaman Hubungkan Aplikasi, salin kode 8 karakter, lalu tempel
-          di sini.
+          {t(
+            "license.pairing.description",
+            "Sign in to BITS License Manager on the web, open the Connect Application page, copy the 8-character code, and paste it here.",
+          )}
         </p>
       </div>
       <div className="space-y-4 p-5">
-        <Field label="Kode Pairing" htmlFor="license-pairing-code" hint="8 karakter huruf dan angka.">
+        <Field
+          label={t("license.pairing.code", "Pairing code")}
+          htmlFor="license-pairing-code"
+          hint={t("license.pairing.codeHint", "8 letters and numbers.")}
+        >
           <Input
             id="license-pairing-code"
             value={code}
@@ -88,7 +105,7 @@ function PairingScreen() {
           disabled={code.length !== 8}
           onClick={() => link.mutate()}
         >
-          Hubungkan
+          {t("license.pairing.connect", "Connect")}
         </Button>
 
         <button
@@ -97,7 +114,7 @@ function PairingScreen() {
           className="mx-auto flex items-center gap-1.5 text-[11px] font-medium text-accent hover:underline"
         >
           <ExternalLink size={12} />
-          Buka BITS License Manager
+          {t("license.pairing.openManager", "Open BITS License Manager")}
         </button>
       </div>
     </Card>
@@ -105,6 +122,7 @@ function PairingScreen() {
 }
 
 function BlockedScreen({ state }: { state: LicenseState }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const refresh = useMutation({
     mutationFn: api.refreshLicense,
@@ -116,8 +134,15 @@ function BlockedScreen({ state }: { state: LicenseState }) {
 
   const expired = state.status === "expired";
   const message = expired
-    ? "Lisensi Anda telah kedaluwarsa. Perpanjang langganan di BITS License Manager, lalu segarkan di sini."
-    : state.error ?? "Terjadi kesalahan pada lisensi. Coba segarkan atau kelola lisensi Anda di web.";
+    ? t(
+        "license.blocked.expiredBody",
+        "Your license has expired. Renew the subscription in BITS License Manager, then refresh here.",
+      )
+    : (state.error ??
+      t(
+        "license.blocked.errorBody",
+        "Something went wrong with the license. Try refreshing or manage your license on the web.",
+      ));
 
   return (
     <Card className="overflow-hidden">
@@ -128,7 +153,9 @@ function BlockedScreen({ state }: { state: LicenseState }) {
           </span>
           <div>
             <h2 className="text-[13px] font-semibold text-fg">
-              {expired ? "Lisensi Kedaluwarsa" : "Status Lisensi Bermasalah"}
+              {expired
+                ? t("license.blocked.expiredTitle", "License expired")
+                : t("license.blocked.errorTitle", "License status problem")}
             </h2>
             <p className="mt-1 text-[10.5px] leading-4 text-muted">{message}</p>
           </div>
@@ -147,22 +174,28 @@ function BlockedScreen({ state }: { state: LicenseState }) {
             loading={refresh.isPending}
             onClick={() => refresh.mutate()}
           >
-            Coba Lagi
+            {t("license.blocked.tryAgain", "Try again")}
           </Button>
           <Button
             variant="secondary"
             icon={<ExternalLink size={14} />}
             onClick={() => void openExternal(LICENSE_PORTAL_URL)}
           >
-            Kelola Lisensi
+            {t("license.blocked.manage", "Manage license")}
           </Button>
         </div>
 
         <div className="flex items-center justify-between gap-3 border-t border-line/60 pt-3">
           <Badge tone={expired ? "warning" : "danger"} dot>
-            {expired ? "Kedaluwarsa" : "Kesalahan"}
+            {expired
+              ? t("license.blocked.expiredBadge", "Expired")
+              : t("license.blocked.errorBadge", "Error")}
           </Badge>
-          {state.plan ? <span className="text-[10px] text-faint">Paket: {state.plan}</span> : null}
+          {state.plan ? (
+            <span className="text-[10px] text-faint">
+              {t("license.blocked.plan", "Plan: {plan}", { plan: state.plan })}
+            </span>
+          ) : null}
         </div>
       </div>
     </Card>
@@ -170,11 +203,12 @@ function BlockedScreen({ state }: { state: LicenseState }) {
 }
 
 export function LicenseGate({ state, children }: { state?: LicenseState; children: ReactNode }) {
+  const { t } = useI18n();
   if (!state) {
     return (
       <GateShell>
         <div className="flex items-center justify-center gap-2 py-10 text-sm text-muted">
-          <Loader2 size={15} className="animate-spin" /> Memeriksa Lisensi…
+          <Loader2 size={15} className="animate-spin" /> {t("license.checking", "Checking license…")}
         </div>
       </GateShell>
     );

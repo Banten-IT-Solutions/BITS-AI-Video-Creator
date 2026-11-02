@@ -13,6 +13,7 @@ import {
 import { useEffect, useState } from "react";
 import { api } from "../lib/api";
 import { formatDateTime, formatDuration, formatTime, relativeTime, statusTone, stringifyJson } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { RunStep } from "../lib/types";
 import { useToast } from "./Toast";
 import { Badge, Button, IconButton, Modal, ProgressBar, StatusBadge } from "./ui";
@@ -26,6 +27,7 @@ function StepIcon({ status }: { status: string }) {
 }
 
 function StepRow({ step }: { step: RunStep }) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
   const hasDetail = step.output != null || step.error != null;
   return (
@@ -43,7 +45,7 @@ function StepRow({ step }: { step: RunStep }) {
           <span className="block truncate text-xs font-medium text-fg">{step.nodeName}</span>
           <span className="mt-0.5 block font-mono text-[10px] text-faint">
             {step.nodeType}
-            {step.attempt > 1 ? ` · attempt ${step.attempt}` : ""}
+            {step.attempt > 1 ? ` · ${t("runs.attempt", "attempt {attempt}", { attempt: step.attempt })}` : ""}
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2 text-[10px] text-faint">
@@ -80,6 +82,7 @@ export function RunDetailDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [copied, setCopied] = useState(false);
@@ -105,20 +108,20 @@ export function RunDetailDialog({
   const cancel = useMutation({
     mutationFn: () => api.cancelRun(runId as string),
     onSuccess: (requested) => {
-      toast.info(requested ? "Cancellation requested" : "Run already finished");
+      toast.info(requested ? t("runs.cancellationRequested", "Cancellation requested") : t("runs.alreadyFinished", "Run already finished"));
       invalidate();
     },
-    onError: (error) => toast.error("Unable to cancel run", error.message),
+    onError: (error) => toast.error(t("runs.unableToCancel", "Unable to cancel run"), error.message),
   });
 
   const retry = useMutation({
     mutationFn: () => api.retryRun(runId as string),
     onSuccess: (run) => {
-      toast.success("Retry queued", `New run ${run.id.slice(0, 8)} is waiting for a worker.`);
+      toast.success(t("runs.retryQueued", "Retry queued"), t("runs.retryQueuedBody", "New run {id} is waiting for a worker.", { id: run.id.slice(0, 8) }));
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (error) => toast.error("Unable to retry run", error.message),
+    onError: (error) => toast.error(t("runs.unableToRetry", "Unable to retry run"), error.message),
   });
 
   const run = detail.data?.run;
@@ -132,7 +135,7 @@ export function RunDetailDialog({
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1_500);
     } catch {
-      toast.error("Clipboard unavailable");
+      toast.error(t("runs.clipboardUnavailable", "Clipboard unavailable"));
     }
   };
 
@@ -141,13 +144,13 @@ export function RunDetailDialog({
       open={open}
       onClose={onClose}
       size="xl"
-      title={run ? `${run.workflowName} · run` : "Run details"}
+      title={run ? t("runs.detailTitle", "{name} · run", { name: run.workflowName }) : t("runs.details", "Run details")}
       description={run ? <span className="font-mono text-[11px] text-faint">{run.id}</span> : undefined}
       footer={
         run ? (
           <>
             <Button variant="ghost" onClick={onClose}>
-              Close
+              {t("common.close", "Close")}
             </Button>
             {active ? (
               <Button
@@ -156,7 +159,7 @@ export function RunDetailDialog({
                 loading={cancel.isPending}
                 onClick={() => cancel.mutate()}
               >
-                Cancel run
+                {t("runs.cancelRun", "Cancel run")}
               </Button>
             ) : (
               <Button
@@ -165,7 +168,7 @@ export function RunDetailDialog({
                 loading={retry.isPending}
                 onClick={() => retry.mutate()}
               >
-                Run again
+                {t("runs.runAgain", "Run again")}
               </Button>
             )}
           </>
@@ -174,7 +177,7 @@ export function RunDetailDialog({
     >
       {detail.isLoading ? (
         <div className="flex items-center gap-2 py-8 text-xs text-muted">
-          <Loader2 size={14} className="animate-spin" /> Loading run…
+          <Loader2 size={14} className="animate-spin" /> {t("runs.loadingRun", "Loading run…")}
         </div>
       ) : detail.error ? (
         <div className="rounded-lg border border-danger/30 bg-danger/5 p-3 text-xs text-danger">
@@ -185,30 +188,30 @@ export function RunDetailDialog({
           <div className="flex flex-wrap items-center gap-2">
             <StatusBadge status={run.status} />
             <Badge tone="neutral">{run.trigger}</Badge>
-            {run.cancelRequested && active ? <Badge tone="warning">Cancel requested</Badge> : null}
+            {run.cancelRequested && active ? <Badge tone="warning">{t("runs.cancelRequested", "Cancel requested")}</Badge> : null}
             {run.durationMs != null ? <Badge tone="neutral">{formatDuration(run.durationMs)}</Badge> : null}
           </div>
 
           <div className="grid grid-cols-2 gap-x-6 gap-y-3 rounded-xl border border-line/80 bg-surface/60 p-4 sm:grid-cols-4">
             <div>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Queued</p>
+              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("runs.queued", "Queued")}</p>
               <p className="mt-1 text-xs text-fg">{formatTime(run.queuedAt)}</p>
               <p className="text-[10px] text-faint">{relativeTime(run.queuedAt)}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Started</p>
+              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("runs.started", "Started")}</p>
               <p className="mt-1 text-xs text-fg">{formatTime(run.startedAt)}</p>
-              <p className="text-[10px] text-faint">{run.startedAt ? formatDateTime(run.startedAt) : "Not started"}</p>
+              <p className="text-[10px] text-faint">{run.startedAt ? formatDateTime(run.startedAt) : t("runs.notStarted", "Not started")}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Finished</p>
+              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("runs.finished", "Finished")}</p>
               <p className="mt-1 text-xs text-fg">{formatTime(run.finishedAt)}</p>
-              <p className="text-[10px] text-faint">{run.finishedAt ? formatDateTime(run.finishedAt) : "In progress"}</p>
+              <p className="text-[10px] text-faint">{run.finishedAt ? formatDateTime(run.finishedAt) : t("runs.inProgress", "In progress")}</p>
             </div>
             <div>
-              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">Progress</p>
+              <p className="text-[10px] uppercase tracking-[0.1em] text-faint">{t("runs.progress", "Progress")}</p>
               <p className="mt-1 numeric text-xs text-fg">
-                {run.completedSteps} / {run.totalSteps} steps
+                {t("runs.stepsCount", "{completed} / {total} steps", { completed: run.completedSteps, total: run.totalSteps })}
               </p>
               <ProgressBar value={run.completedSteps} maximum={Math.max(run.totalSteps, 1)} className="mt-2" />
             </div>
@@ -218,7 +221,7 @@ export function RunDetailDialog({
             <div className="flex gap-2.5 rounded-xl border border-danger/30 bg-danger/5 p-3.5">
               <AlertTriangle size={15} className="mt-0.5 shrink-0 text-danger" />
               <div>
-                <p className="text-xs font-medium text-danger">Run error</p>
+                <p className="text-xs font-medium text-danger">{t("runs.runError", "Run error")}</p>
                 <p className="mt-1 whitespace-pre-wrap break-words font-mono text-[11px] leading-5 text-danger/90">
                   {run.error}
                 </p>
@@ -229,12 +232,12 @@ export function RunDetailDialog({
           <div className="grid gap-5 lg:grid-cols-[1.4fr_1fr]">
             <div>
               <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">Step timeline</h3>
-                <span className="numeric text-[10px] text-faint">{steps.length} records</span>
+                <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">{t("runs.stepTimeline", "Step timeline")}</h3>
+                <span className="numeric text-[10px] text-faint">{t("runs.records", "{count} records", { count: steps.length })}</span>
               </div>
               {steps.length === 0 ? (
                 <p className="rounded-lg border border-dashed border-line px-3 py-6 text-center text-xs text-faint">
-                  No steps recorded yet.
+                  {t("runs.noSteps", "No steps recorded yet.")}
                 </p>
               ) : (
                 <ol className="relative ml-2 space-y-1 border-l border-line/80 pl-4">
@@ -247,7 +250,7 @@ export function RunDetailDialog({
             <div className="space-y-3">
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">Input</h3>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">{t("runs.input", "Input")}</h3>
                 </div>
                 <pre className="max-h-44 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-surface p-3 font-mono text-[10.5px] leading-5 text-muted">
                   {stringifyJson(run.input)}
@@ -255,15 +258,15 @@ export function RunDetailDialog({
               </div>
               <div>
                 <div className="mb-2 flex items-center justify-between">
-                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">Output</h3>
+                  <h3 className="text-[11px] font-semibold uppercase tracking-[0.1em] text-muted">{t("runs.output", "Output")}</h3>
                   {run.output ? (
-                    <IconButton label="Copy output" size="sm" onClick={() => void copyJson()}>
+                    <IconButton label={t("runs.copyOutput", "Copy output")} size="sm" onClick={() => void copyJson()}>
                       {copied ? <Check size={13} className="text-accent" /> : <Copy size={13} />}
                     </IconButton>
                   ) : null}
                 </div>
                 <pre className="max-h-64 overflow-auto whitespace-pre-wrap break-words rounded-lg border border-line bg-surface p-3 font-mono text-[10.5px] leading-5 text-muted">
-                  {run.output ? stringifyJson(run.output) : "No output recorded."}
+                  {run.output ? stringifyJson(run.output) : t("runs.noOutput", "No output recorded.")}
                 </pre>
               </div>
             </div>

@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRoot } from "react-dom/client";
 import { App } from "./App";
 import { ToastProvider } from "./components/Toast";
+import { I18nProvider } from "./i18n";
 import "./index.css";
 
 const queryClient = new QueryClient({
@@ -19,8 +20,10 @@ if (!container) throw new Error("Root element is missing");
 
 createRoot(container).render(
   <QueryClientProvider client={queryClient}>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <I18nProvider>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </I18nProvider>
   </QueryClientProvider>,
 );

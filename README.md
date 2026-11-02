@@ -246,12 +246,14 @@ are not in the database; only secret references are.
 
 ## Documentation
 
+- [Getting started](docs/GETTING_STARTED.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Feature inventory](docs/FEATURE_INVENTORY.md)
 - [Implementation and verification plan](docs/IMPLEMENTATION_PLAN.md)
 - [Releasing](docs/RELEASING.md)
 - [Brand audit](docs/BRAND_AUDIT_1.0.0.md)
 - [Release verification](docs/RELEASE_VERIFICATION_1.0.0.md)
+- [Localization (i18n)](docs/I18N.md)
 - [Security policy](SECURITY.md)
 - [Contributing](CONTRIBUTING.md)
 - [Third-party notices](NOTICE.md)

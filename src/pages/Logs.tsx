@@ -27,6 +27,7 @@ import {
 import { api, toApiError } from "../lib/api";
 import { formatDateTime, formatTime, relativeTime, stringifyJson } from "../lib/format";
 import type { LogEntry } from "../lib/types";
+import { useI18n } from "../i18n";
 
 const PAGE_SIZE = 100;
 const LEVELS = ["trace", "debug", "info", "warn", "error"];
@@ -39,6 +40,7 @@ function levelTone(level: string): "neutral" | "info" | "warning" | "danger" {
 }
 
 function LogRow({ entry, expanded, onToggle }: { entry: LogEntry; expanded: boolean; onToggle: () => void }) {
+  const { t } = useI18n();
   return (
     <div className="border-b border-line/45 last:border-0">
       <div className="flex items-start gap-3 px-4 py-2.5 transition-colors hover:bg-raised/25">
@@ -60,11 +62,13 @@ function LogRow({ entry, expanded, onToggle }: { entry: LogEntry; expanded: bool
               {entry.message}
             </span>
             {entry.runId ? (
-              <span className="mt-0.5 block font-mono text-[9px] text-faint">run {entry.runId.slice(0, 12)}</span>
+              <span className="mt-0.5 block font-mono text-[9px] text-faint">
+                {t("logs.runToken", "run {id}", { id: entry.runId.slice(0, 12) })}
+              </span>
             ) : null}
           </button>
         </div>
-        <IconButton label={expanded ? "Collapse log entry" : "Expand log entry"} size="sm" onClick={onToggle}>
+        <IconButton label={expanded ? t("logs.collapse", "Collapse log entry") : t("logs.expand", "Expand log entry")} size="sm" onClick={onToggle}>
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
         </IconButton>
       </div>
@@ -89,7 +93,7 @@ function LogRow({ entry, expanded, onToggle }: { entry: LogEntry; expanded: bool
               {stringifyJson(entry.details)}
             </pre>
           ) : (
-            <p className="text-[10px] text-faint">No structured details for this entry.</p>
+            <p className="text-[10px] text-faint">{t("logs.noDetails", "No structured details for this entry.")}</p>
           )}
         </div>
       ) : null}
@@ -98,6 +102,7 @@ function LogRow({ entry, expanded, onToggle }: { entry: LogEntry; expanded: bool
 }
 
 export function LogsPage() {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [level, setLevel] = useState("");
@@ -129,13 +134,18 @@ export function LogsPage() {
   const clear = useMutation({
     mutationFn: () => api.clearLogs(true),
     onSuccess: (removed) => {
-      toast.success("Logs cleared", `${removed} entr${removed === 1 ? "y" : "ies"} removed.`);
+      toast.success(
+        t("logs.cleared", "Logs cleared"),
+        removed === 1
+          ? t("logs.removedOne", "{count} entry removed.", { count: removed })
+          : t("logs.removedMany", "{count} entries removed.", { count: removed }),
+      );
       setClearOpen(false);
       setPage(0);
       void queryClient.invalidateQueries({ queryKey: ["logs"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (cause) => toast.error("Unable to clear logs", toApiError(cause).message),
+    onError: (cause) => toast.error(t("logs.unableToClear", "Unable to clear logs"), toApiError(cause).message),
   });
 
   const entries = logs.data ?? [];
@@ -145,16 +155,19 @@ export function LogsPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Diagnostics"
-        title="Logs"
-        description="Application, scheduler, engine, and account events. Sensitive values are redacted before insertion; log retention and row caps are configured in settings."
+        eyebrow={t("logs.eyebrow", "Diagnostics")}
+        title={t("logs.title", "Logs")}
+        description={t(
+          "logs.description",
+          "Application, scheduler, engine, and account events. Sensitive values are redacted before insertion; log retention and row caps are configured in settings.",
+        )}
         actions={
           <>
             <Button icon={<RefreshCw size={14} />} loading={logs.isFetching} onClick={() => void logs.refetch()}>
-              Refresh
+              {t("common.refresh", "Refresh")}
             </Button>
             <Button variant="danger" icon={<Eraser size={14} />} onClick={() => setClearOpen(true)}>
-              Clear logs
+              {t("logs.clearLogs", "Clear logs")}
             </Button>
           </>
         }
@@ -171,7 +184,7 @@ export function LogsPage() {
             level === "" ? "border-accent/30 bg-accent/10 text-accent" : "border-line bg-surface text-muted hover:text-fg"
           }`}
         >
-          All levels
+          {t("logs.allLevels", "All levels")}
           <span className="numeric ml-1.5 text-[9px] opacity-70">{entries.length}</span>
         </button>
         {counts.map((item) => (
@@ -192,13 +205,16 @@ export function LogsPage() {
             <span className="numeric ml-1.5 text-[9px] opacity-70">{item.count}</span>
           </button>
         ))}
-        <span className="ml-auto text-[9.5px] text-faint">Counts reflect the current page only.</span>
+        <span className="ml-auto text-[9.5px] text-faint">{t("logs.countsPageOnly", "Counts reflect the current page only.")}</span>
       </div>
 
       <Card className="mt-3 overflow-hidden">
         <CardHeader
-          title="Event stream"
-          description="Newest first. Filtering is applied by the local database before pagination."
+          title={t("logs.eventStream", "Event stream")}
+          description={t(
+            "logs.eventStreamDesc",
+            "Newest first. Filtering is applied by the local database before pagination.",
+          )}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Select
@@ -208,9 +224,9 @@ export function LogsPage() {
                   setPage(0);
                 }}
                 className="h-8 w-[118px] text-xs"
-                aria-label="Filter by log level"
+                aria-label={t("logs.filterByLevel", "Filter by log level")}
               >
-                <option value="">All levels</option>
+                <option value="">{t("logs.allLevels", "All levels")}</option>
                 {LEVELS.map((item) => (
                   <option key={item} value={item}>
                     {item}
@@ -230,9 +246,9 @@ export function LogsPage() {
                 setQuery(event.target.value);
                 setPage(0);
               }}
-              placeholder="Search message or details…"
+              placeholder={t("logs.searchPlaceholder", "Search message or details…")}
               className="h-8 pl-8 text-xs"
-              aria-label="Search log messages"
+              aria-label={t("logs.searchAria", "Search log messages")}
             />
           </div>
           <Input
@@ -241,9 +257,9 @@ export function LogsPage() {
               setScope(event.target.value);
               setPage(0);
             }}
-            placeholder="Exact scope, e.g. scheduler"
+            placeholder={t("logs.scopePlaceholder", "Exact scope, e.g. scheduler")}
             className="h-8 font-mono text-[11px]"
-            aria-label="Filter by scope"
+            aria-label={t("logs.scopeAria", "Filter by scope")}
           />
           <Input
             value={runId}
@@ -251,9 +267,9 @@ export function LogsPage() {
               setRunId(event.target.value);
               setPage(0);
             }}
-            placeholder="Run id (exact)"
+            placeholder={t("logs.runIdPlaceholder", "Run id (exact)")}
             className="h-8 font-mono text-[11px]"
-            aria-label="Filter by run id"
+            aria-label={t("logs.runIdAria", "Filter by run id")}
           />
         </div>
 
@@ -267,17 +283,20 @@ export function LogsPage() {
           <div className="flex flex-wrap items-center justify-between gap-3 p-4">
             <p className="text-xs text-danger">{logs.error.message}</p>
             <Button size="sm" variant="secondary" onClick={() => void logs.refetch()}>
-              Retry
+              {t("common.retry", "Retry")}
             </Button>
           </div>
         ) : entries.length === 0 ? (
           <EmptyState
             icon={<ScrollText size={18} />}
-            title={hasFilters ? "No log entries match" : "No log entries"}
+            title={hasFilters ? t("logs.noMatch", "No log entries match") : t("logs.empty", "No log entries")}
             description={
               hasFilters
-                ? "Try a broader search, clear the scope or run id, or select another level."
-                : "Log entries appear after application activity. Run a workflow to populate engine and step logs."
+                ? t("logs.noMatchDesc", "Try a broader search, clear the scope or run id, or select another level.")
+                : t(
+                    "logs.emptyDesc",
+                    "Log entries appear after application activity. Run a workflow to populate engine and step logs.",
+                  )
             }
             action={
               hasFilters ? (
@@ -291,7 +310,7 @@ export function LogsPage() {
                     setPage(0);
                   }}
                 >
-                  Clear filters
+                  {t("logs.clearFilters", "Clear filters")}
                 </Button>
               ) : undefined
             }
@@ -311,9 +330,9 @@ export function LogsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-4 py-3">
           <span className="text-[10px] text-faint">
-            Page {page + 1}
+            {t("logs.page", "Page {page}", { page: page + 1 })}
             {entries.length > 0 ? ` · ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + entries.length}` : ""}
-            {logs.isFetching ? " · refreshing" : ""}
+            {logs.isFetching ? ` · ${t("logs.refreshing", "refreshing")}` : ""}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -323,7 +342,7 @@ export function LogsPage() {
               disabled={page === 0}
               onClick={() => setPage((value) => Math.max(0, value - 1))}
             >
-              Previous
+              {t("logs.previous", "Previous")}
             </Button>
             <Button
               size="sm"
@@ -331,7 +350,7 @@ export function LogsPage() {
               disabled={entries.length < PAGE_SIZE}
               onClick={() => setPage((value) => value + 1)}
             >
-              Next
+              {t("logs.next", "Next")}
               <ChevronRight size={13} />
             </Button>
           </div>
@@ -340,9 +359,12 @@ export function LogsPage() {
 
       <ConfirmDialog
         open={clearOpen}
-        title="Clear all logs"
-        description="This permanently deletes every log entry, including run-scoped diagnostics. Run history, step output, workflows, and accounts are not affected. This cannot be undone."
-        confirmLabel="Clear logs"
+        title={t("logs.clearConfirmTitle", "Clear all logs")}
+        description={t(
+          "logs.clearConfirmDesc",
+          "This permanently deletes every log entry, including run-scoped diagnostics. Run history, step output, workflows, and accounts are not affected. This cannot be undone.",
+        )}
+        confirmLabel={t("logs.clearLogs", "Clear logs")}
         busy={clear.isPending}
         onConfirm={() => clear.mutate()}
         onClose={() => setClearOpen(false)}

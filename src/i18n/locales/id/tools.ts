@@ -1,0 +1,61 @@
+const ns: Record<string, string> = {
+  "tools.eyebrow": "Alat web provider",
+  "tools.descriptionAndroid":
+    "Halaman storyboard dan suara yang dihosting provider. Webview tersemat yang sudah masuk belum tersedia di Android; buka halaman provider di browser Anda.",
+  "tools.descriptionDesktop":
+    "Halaman storyboard dan suara yang dihosting provider, dibuka di dalam webview terisolasi yang sudah masuk. Ini halaman web, bukan API vendor.",
+  "tools.nativeStoryboards": "Storyboard native",
+  "tools.voiceoverStudio": "Studio voiceover",
+  "tools.availableTitle": "Alat yang tersedia",
+  "tools.availableDesc": "Perubahan UI provider dapat memengaruhi ketersediaan.",
+  "tools.loadingTools": "Memuat alat…",
+  "tools.sessionTitle": "Sesi",
+  "tools.sessionRequires": "Memerlukan akun {provider}.",
+  "tools.manage": "Kelola",
+  "tools.loadingAccounts": "Memuat akun…",
+  "tools.noCompatible": "Tidak ada akun yang kompatibel",
+  "tools.noCompatibleDesc": "Tambahkan akun {provider}, masuk satu kali, lalu kembali ke sini.",
+  "tools.addAccount": "Tambah akun",
+  "tools.accountAria": "Akun alat",
+  "tools.signInNeeded": " — perlu masuk",
+  "tools.androidNote":
+    "Android membuka provider di browser sistem Anda. Catatan akun tetap tersimpan lokal di BITS AI Video Creator.",
+  "tools.desktopNote": "Alat ini memakai profil terisolasi milik akun tersebut. Proses masuk tetap di dalam webview.",
+  "tools.openInBrowser": "Buka URL provider di browser",
+  "tools.promptCardTitle": "Perpustakaan prompt",
+  "tools.promptCardDesc": "Salin prompt yang tersimpan, lalu tempel ke halaman provider.",
+  "tools.promptAria": "Prompt tersimpan",
+  "tools.choosePrompt": "Pilih prompt…",
+  "tools.previewAria": "Pratinjau prompt",
+  "tools.copyPrompt": "Salin prompt",
+  "tools.noPrompts": "Belum ada prompt tersimpan. Buat teks yang dapat dipakai ulang di perpustakaan prompt.",
+  "tools.securityNote":
+    "Sesi alat terisolasi per akun di bawah direktori data aplikasi, menyimpan cache hingga delapan tampilan, dan dibatasi ke HTTPS. Pop-up ditolak.",
+  "tools.androidEmbeddedTitle": "Sesi alat tersemat tidak tersedia di Android",
+  "tools.androidEmbeddedBody":
+    "BITS AI Video Creator memerlukan profil webview terisolasi per akun untuk alat ini. Di Android, buka halaman provider di browser sistem Anda dan gunakan prompt tersimpan dari perpustakaan.",
+  "tools.openTool": "Buka {tool}",
+  "tools.emptyNoAccountTitle": "Tambahkan akun yang kompatibel terlebih dahulu",
+  "tools.emptyNoAccountDesc":
+    "Alat provider berjalan di profil tempat masuk milik akun yang ada. Tambahkan satu dari halaman Akun.",
+  "tools.emptyChooseTitle": "Pilih alat",
+  "tools.emptyChooseDesc": "Pilih alat dan akun yang sudah masuk untuk membuka sesi tersemat.",
+  "tools.goToAccounts": "Buka Akun",
+  "tools.promptCopied": "Prompt disalin",
+  "tools.promptCopiedDesc": "Tempelkan ke alat provider.",
+  "tools.clipboardError": "Papan klip tidak tersedia",
+  "tools.clipboardErrorDesc": "Buka perpustakaan prompt dan salin teksnya secara manual.",
+  "tools.tooSmallError": "Area alat terlalu kecil. Perbesar jendela lalu coba lagi.",
+  "tools.reloadedToast": "Alat provider dimuat ulang",
+  "tools.reloadError": "Tidak dapat memuat ulang",
+  "tools.attachedBadge": "terhubung",
+  "tools.openingBadge": "membuka",
+  "tools.reload": "Muat ulang",
+  "tools.unavailableTitle": "Alat tidak tersedia",
+  "tools.opening": "Membuka alat web provider…",
+  "tools.active": "Alat provider aktif.",
+  "tools.footerNote":
+    "Halaman tersemat tidak memiliki akses IPC BITS AI Video Creator; unduhan memakai dialog simpan HTTPS native.",
+};
+
+export default ns;

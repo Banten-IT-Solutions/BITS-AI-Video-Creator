@@ -65,7 +65,8 @@ import {
   cn,
 } from "../components/ui";
 import { api, toApiError } from "../lib/api";
-import { parseJsonObject, relativeTime } from "../lib/format";
+import { humanStatus, parseJsonObject, relativeTime } from "../lib/format";
+import { translate, useI18n } from "../i18n";
 import { navigate, setBeforeNavigate } from "../lib/router";
 import type {
   Account,
@@ -161,6 +162,8 @@ function nodeIcon(type: string, size = 14): ReactNode {
 }
 
 function WorkflowNodeCard({ data, selected }: NodeProps<EditorNode>) {
+  // Subscribe so nodeShort/nodeSummary re-translate when the language changes.
+  useI18n();
   const node = data.node;
   const category = nodeCategory(node.type);
   const styles = CATEGORY_STYLES[category];
@@ -294,6 +297,7 @@ function NodeSettings({
   onChange: (node: WorkflowNode) => void;
   onDelete: () => void;
 }) {
+  const { t } = useI18n();
   const config = node.config;
   const [headersText, setHeadersText] = useState(() => {
     const headers = config.headers;
@@ -327,7 +331,7 @@ function NodeSettings({
       return;
     }
     if (parsed.value == null || typeof parsed.value !== "object" || Array.isArray(parsed.value)) {
-      setHeadersError("Headers must be a JSON object.");
+      setHeadersError(t("workflowEditor.headersMustBeObject", "Headers must be a JSON object."));
       return;
     }
     setHeadersError(null);
@@ -366,23 +370,28 @@ function NodeSettings({
           <p className="text-[12px] font-semibold text-fg">{nodeLabel(node.type)}</p>
           <p className="font-mono text-[9.5px] text-faint">{node.id}</p>
         </div>
-        <Badge tone="neutral">{nodeCategory(node.type)}</Badge>
+        <Badge tone="neutral">{t(`workflowEditor.category.${nodeCategory(node.type)}`, nodeCategory(node.type))}</Badge>
       </div>
 
-      <Field label="Node name">
+      <Field label={t("workflowEditor.nodeName", "Node name")}>
         <Input value={node.name} onChange={(event) => onChange({ ...node, name: event.target.value })} maxLength={100} />
       </Field>
 
       {node.type === "trigger.manual" ? (
         <p className="rounded-lg border border-line/70 bg-surface/60 p-3 text-[11px] leading-5 text-muted">
-          This workflow starts only when you run it manually. Replace this node with a schedule trigger to run
-          automatically.
+          {t(
+            "workflowEditor.manualTriggerHint",
+            "This workflow starts only when you run it manually. Replace this node with a schedule trigger to run automatically.",
+          )}
         </p>
       ) : null}
 
       {node.type === "trigger.schedule" ? (
         <>
-          <Field label="Cron expression" hint="Six fields: second minute hour day-of-month month day-of-week.">
+          <Field
+            label={t("workflowEditor.cronExpression", "Cron expression")}
+            hint={t("workflowEditor.cronHint", "Six fields: second minute hour day-of-month month day-of-week.")}
+          >
             <Input
               value={typeof config.cron === "string" ? config.cron : ""}
               onChange={(event) => setConfig("cron", event.target.value)}
@@ -390,7 +399,7 @@ function NodeSettings({
               placeholder="0 9 * * * *"
             />
           </Field>
-          <Field label="Preset">
+          <Field label={t("workflowEditor.preset", "Preset")}>
             <Select
               value=""
               onChange={(event) => {
@@ -400,7 +409,7 @@ function NodeSettings({
                 }
               }}
             >
-              <option value="">Choose a preset…</option>
+              <option value="">{t("workflowEditor.choosePreset", "Choose a preset…")}</option>
               {CRON_PRESETS.map((preset) => (
                 <option key={preset.value} value={preset.value}>
                   {preset.label}
@@ -408,7 +417,7 @@ function NodeSettings({
               ))}
             </Select>
           </Field>
-          <Field label="Timezone">
+          <Field label={t("workflowEditor.timezone", "Timezone")}>
             <Select
               value={typeof config.timezone === "string" ? config.timezone : "UTC"}
               onChange={(event) => setConfig("timezone", event.target.value)}
@@ -423,8 +432,11 @@ function NodeSettings({
           <Toggle
             checked={config.enabled !== false}
             onChange={(value) => setConfig("enabled", value)}
-            label="Schedule enabled"
-            description="Paused schedules keep their definition but are excluded from dispatch."
+            label={t("workflowEditor.scheduleEnabled", "Schedule enabled")}
+            description={t(
+              "workflowEditor.scheduleEnabledDesc",
+              "Paused schedules keep their definition but are excluded from dispatch.",
+            )}
           />
         </>
       ) : null}
@@ -432,7 +444,7 @@ function NodeSettings({
       {node.type === "action.http" ? (
         <>
           <div className="grid grid-cols-[100px_1fr] gap-2">
-            <Field label="Method">
+            <Field label={t("workflowEditor.method", "Method")}>
               <Select value={typeof config.method === "string" ? config.method : "GET"} onChange={(event) => setConfig("method", event.target.value)}>
                 {["GET", "POST", "PUT", "PATCH", "DELETE", "HEAD"].map((method) => (
                   <option key={method} value={method}>
@@ -441,7 +453,10 @@ function NodeSettings({
                 ))}
               </Select>
             </Field>
-            <Field label="URL" hint="Supports {{input.*}}, {{steps.*}}, and {{secrets.*}} templates.">
+            <Field
+              label="URL"
+              hint={t("workflowEditor.urlHint", "Supports {{input.*}}, {{steps.*}}, and {{secrets.*}} templates.")}
+            >
               <Input
                 value={typeof config.url === "string" ? config.url : ""}
                 onChange={(event) => setConfig("url", event.target.value)}
@@ -450,7 +465,7 @@ function NodeSettings({
               />
             </Field>
           </div>
-          <Field label="Headers" hint="JSON object. Values may contain templates.">
+          <Field label={t("workflowEditor.headers", "Headers")} hint={t("workflowEditor.headersHint", "JSON object. Values may contain templates.")}>
             <Textarea
               value={headersText}
               onChange={(event) => updateHeaders(event.target.value)}
@@ -459,16 +474,25 @@ function NodeSettings({
               className="font-mono text-[11px]"
             />
           </Field>
-          {headersError ? <p className="text-[11px] text-danger">Headers: {headersError}</p> : null}
-          <Field label="Body type">
+          {headersError ? (
+            <p className="text-[11px] text-danger">{t("workflowEditor.headersError", "Headers: {error}", { error: headersError })}</p>
+          ) : null}
+          <Field label={t("workflowEditor.bodyType", "Body type")}>
             <Select value={bodyMode} onChange={(event) => updateBody(event.target.value as "none" | "text" | "json", bodyText)}>
-              <option value="none">No body</option>
-              <option value="text">Text template</option>
-              <option value="json">JSON value</option>
+              <option value="none">{t("workflowEditor.bodyNone", "No body")}</option>
+              <option value="text">{t("workflowEditor.bodyText", "Text template")}</option>
+              <option value="json">{t("workflowEditor.bodyJson", "JSON value")}</option>
             </Select>
           </Field>
           {bodyMode !== "none" ? (
-            <Field label={bodyMode === "json" ? "JSON body" : "Body template"} hint={bodyMode === "json" ? "Object or array; string values support templates." : "Sent as-is after template rendering."}>
+            <Field
+              label={bodyMode === "json" ? t("workflowEditor.bodyJsonField", "JSON body") : t("workflowEditor.bodyTextField", "Body template")}
+              hint={
+                bodyMode === "json"
+                  ? t("workflowEditor.bodyJsonHint", "Object or array; string values support templates.")
+                  : t("workflowEditor.bodyTextHint", "Sent as-is after template rendering.")
+              }
+            >
               <Textarea
                 value={bodyText}
                 onChange={(event) => updateBody(bodyMode, event.target.value)}
@@ -478,9 +502,9 @@ function NodeSettings({
               />
             </Field>
           ) : null}
-          {bodyError ? <p className="text-[11px] text-danger">Body: {bodyError}</p> : null}
+          {bodyError ? <p className="text-[11px] text-danger">{t("workflowEditor.bodyError", "Body: {error}", { error: bodyError })}</p> : null}
           <div className="grid grid-cols-2 gap-2">
-            <Field label="Timeout (ms)">
+            <Field label={t("workflowEditor.timeoutMs", "Timeout (ms)")}>
               <Input
                 type="number"
                 min={100}
@@ -494,8 +518,8 @@ function NodeSettings({
               <Toggle
                 checked={config.allowLocal === true}
                 onChange={(value) => setConfig("allowLocal", value)}
-                label="Allow local"
-                description="Also requires the global setting."
+                label={t("workflowEditor.allowLocal", "Allow local")}
+                description={t("workflowEditor.allowLocalDesc", "Also requires the global setting.")}
               />
             </div>
           </div>
@@ -504,15 +528,21 @@ function NodeSettings({
 
       {node.type === "action.account_check" ? (
         <>
-          <Field label="Account" hint="Only an id is stored. The engine reads current local status at execution time.">
+          <Field
+            label={t("workflowEditor.account", "Account")}
+            hint={t(
+              "workflowEditor.accountHint",
+              "Only an id is stored. The engine reads current local status at execution time.",
+            )}
+          >
             <Select
               value={typeof config.accountId === "string" ? config.accountId : ""}
               onChange={(event) => setConfig("accountId", event.target.value)}
             >
-              <option value="">Choose an account…</option>
+              <option value="">{t("workflowEditor.chooseAccount", "Choose an account…")}</option>
               {accounts.map((account) => (
                 <option key={account.id} value={account.id}>
-                  {account.name} · {account.status.replace(/_/g, " ")}
+                  {account.name} · {humanStatus(account.status)}
                 </option>
               ))}
             </Select>
@@ -520,14 +550,17 @@ function NodeSettings({
           <Toggle
             checked={config.failIfInactive === true}
             onChange={(value) => setConfig("failIfInactive", value)}
-            label="Fail when account is inactive"
-            description="Stops the run if the account is missing or not marked active."
+            label={t("workflowEditor.failIfInactive", "Fail when account is inactive")}
+            description={t(
+              "workflowEditor.failIfInactiveDesc",
+              "Stops the run if the account is missing or not marked active.",
+            )}
           />
         </>
       ) : null}
 
       {node.type === "action.delay" ? (
-        <Field label="Duration (seconds)" hint="Between 1 second and 24 hours.">
+        <Field label={t("workflowEditor.durationSeconds", "Duration (seconds)")} hint={t("workflowEditor.durationHint", "Between 1 second and 24 hours.")}>
           <Input
             type="number"
             min={1}
@@ -541,7 +574,7 @@ function NodeSettings({
 
       {node.type === "action.log" ? (
         <>
-          <Field label="Message" hint="Rendered and redacted before it enters the run log.">
+          <Field label={t("workflowEditor.message", "Message")} hint={t("workflowEditor.messageHint", "Rendered and redacted before it enters the run log.")}>
             <Textarea
               value={typeof config.message === "string" ? config.message : ""}
               onChange={(event) => setConfig("message", event.target.value)}
@@ -549,7 +582,7 @@ function NodeSettings({
               className="font-mono text-[11px]"
             />
           </Field>
-          <Field label="Level">
+          <Field label={t("workflowEditor.level", "Level")}>
             <Select value={typeof config.level === "string" ? config.level : "info"} onChange={(event) => setConfig("level", event.target.value)}>
               {["trace", "debug", "info", "warn", "error"].map((level) => (
                 <option key={level} value={level}>
@@ -563,7 +596,7 @@ function NodeSettings({
 
       {node.type === "transform.template" ? (
         <>
-          <Field label="Template" hint="Use {{input.name}}, {{steps.node-id}}, or {{secrets.name}}.">
+          <Field label={t("workflowEditor.template", "Template")} hint={t("workflowEditor.templateHint", "Use {{input.name}}, {{steps.node-id}}, or {{secrets.name}}.")}>
             <Textarea
               value={typeof config.template === "string" ? config.template : ""}
               onChange={(event) => setConfig("template", event.target.value)}
@@ -571,9 +604,9 @@ function NodeSettings({
               className="font-mono text-[11px]"
             />
           </Field>
-          <Field label="Output format" hint="JSON parses the rendered template as JSON.">
+          <Field label={t("workflowEditor.outputFormat", "Output format")} hint={t("workflowEditor.outputFormatHint", "JSON parses the rendered template as JSON.")}>
             <Select value={typeof config.format === "string" ? config.format : "text"} onChange={(event) => setConfig("format", event.target.value)}>
-              <option value="text">Text</option>
+              <option value="text">{t("workflowEditor.formatText", "Text")}</option>
               <option value="json">JSON</option>
             </Select>
           </Field>
@@ -582,29 +615,29 @@ function NodeSettings({
 
       {node.type === "logic.condition" ? (
         <>
-          <Field label="Left value" hint="Supports templates and step references.">
+          <Field label={t("workflowEditor.leftValue", "Left value")} hint={t("workflowEditor.leftValueHint", "Supports templates and step references.")}>
             <Input
               value={typeof config.left === "string" ? config.left : ""}
               onChange={(event) => setConfig("left", event.target.value)}
               className="font-mono text-[11px]"
             />
           </Field>
-          <Field label="Operator">
+          <Field label={t("workflowEditor.operator", "Operator")}>
             <Select value={typeof config.operator === "string" ? config.operator : "equals"} onChange={(event) => setConfig("operator", event.target.value)}>
-              <option value="equals">Equals</option>
-              <option value="not_equals">Does not equal</option>
-              <option value="contains">Contains</option>
-              <option value="not_contains">Does not contain</option>
-              <option value="gt">Greater than</option>
-              <option value="gte">Greater than or equal</option>
-              <option value="lt">Less than</option>
-              <option value="lte">Less than or equal</option>
-              <option value="exists">Exists</option>
-              <option value="empty">Is empty</option>
+              <option value="equals">{t("workflowEditor.operator.equals", "Equals")}</option>
+              <option value="not_equals">{t("workflowEditor.operator.not_equals", "Does not equal")}</option>
+              <option value="contains">{t("workflowEditor.operator.contains", "Contains")}</option>
+              <option value="not_contains">{t("workflowEditor.operator.not_contains", "Does not contain")}</option>
+              <option value="gt">{t("workflowEditor.operator.gt", "Greater than")}</option>
+              <option value="gte">{t("workflowEditor.operator.gte", "Greater than or equal")}</option>
+              <option value="lt">{t("workflowEditor.operator.lt", "Less than")}</option>
+              <option value="lte">{t("workflowEditor.operator.lte", "Less than or equal")}</option>
+              <option value="exists">{t("workflowEditor.operator.exists", "Exists")}</option>
+              <option value="empty">{t("workflowEditor.operator.empty", "Is empty")}</option>
             </Select>
           </Field>
           {!["exists", "empty"].includes(typeof config.operator === "string" ? config.operator : "equals") ? (
-            <Field label="Right value">
+            <Field label={t("workflowEditor.rightValue", "Right value")}>
               <Input
                 value={typeof config.right === "string" ? config.right : ""}
                 onChange={(event) => setConfig("right", event.target.value)}
@@ -613,15 +646,16 @@ function NodeSettings({
             </Field>
           ) : null}
           <p className="rounded-lg border border-line/70 bg-surface/60 p-3 text-[10.5px] leading-4 text-muted">
-            Connect the <span className="text-accent">T</span> handle for the true branch and the{" "}
-            <span className="text-danger">F</span> handle for false. Both branches are optional.
+            {t("workflowEditor.conditionHint1", "Connect the")} <span className="text-accent">T</span>{" "}
+            {t("workflowEditor.conditionHint2", "handle for the true branch and the")}{" "}
+            <span className="text-danger">F</span> {t("workflowEditor.conditionHint3", "handle for false. Both branches are optional.")}
           </p>
         </>
       ) : null}
 
       {node.type === "error.retry" ? (
         <div className="grid grid-cols-2 gap-2">
-          <Field label="Retries" hint="0–5">
+          <Field label={t("workflowEditor.retries", "Retries")} hint="0–5">
             <Input
               type="number"
               min={0}
@@ -631,7 +665,7 @@ function NodeSettings({
               className="numeric"
             />
           </Field>
-          <Field label="Delay (ms)" hint="0–60,000">
+          <Field label={t("workflowEditor.delayMs", "Delay (ms)")} hint="0–60,000">
             <Input
               type="number"
               min={0}
@@ -642,15 +676,17 @@ function NodeSettings({
             />
           </Field>
           <p className="col-span-2 text-[10.5px] leading-4 text-faint">
-            Applies to HTTP and account-check steps that follow this node. The global retry count is used when no
-            policy node is present.
+            {t(
+              "workflowEditor.retryNote",
+              "Applies to HTTP and account-check steps that follow this node. The global retry count is used when no policy node is present.",
+            )}
           </p>
         </div>
       ) : null}
 
       <div className="border-t border-line/60 pt-3">
         <Button size="sm" variant="danger" icon={<Trash2 size={12} />} onClick={onDelete} className="w-full">
-          Delete node
+          {t("workflowEditor.deleteNode", "Delete node")}
         </Button>
       </div>
     </div>
@@ -658,6 +694,7 @@ function NodeSettings({
 }
 
 function EditorInner({ workflow }: { workflow: Workflow }) {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const { screenToFlowPosition, fitView } = useReactFlow();
@@ -704,7 +741,13 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
       setBeforeNavigate(null);
       return;
     }
-    const guard = () => window.confirm("This workflow has unsaved changes. Discard them and leave the editor?");
+    const guard = () =>
+      window.confirm(
+        translate(
+          "workflowEditor.unsavedConfirm",
+          "This workflow has unsaved changes. Discard them and leave the editor?",
+        ),
+      );
     setBeforeNavigate(guard);
     const beforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault();
@@ -774,7 +817,10 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
   const addNode = useCallback(
     (type: NodeType, position?: { x: number; y: number }) => {
       if (type.startsWith("trigger.") && nodes.some((node) => node.data.node.type.startsWith("trigger."))) {
-        toast.error("Only one trigger", "Delete the existing trigger before adding another one.");
+        toast.error(
+          t("workflowEditor.oneTriggerTitle", "Only one trigger"),
+          t("workflowEditor.oneTriggerBody", "Delete the existing trigger before adding another one."),
+        );
         return;
       }
       let point = position;
@@ -800,14 +846,17 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
       setSelectedNodeId(created.id);
       setDirty(true);
     },
-    [nodes, screenToFlowPosition, setNodes, toast],
+    [nodes, screenToFlowPosition, setNodes, toast, t],
   );
 
   const onConnect = useCallback(
     (connection: Connection) => {
       if (!connection.source || !connection.target) return;
       if (connection.source === connection.target) {
-        toast.error("Invalid connection", "A node cannot connect to itself.");
+        toast.error(
+          t("workflowEditor.invalidConnectionTitle", "Invalid connection"),
+          t("workflowEditor.invalidConnectionBody", "A node cannot connect to itself."),
+        );
         return;
       }
       const source = nodes.find((node) => node.id === connection.source);
@@ -819,11 +868,22 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
           : "true"
         : null;
       if (!condition && edges.some((edge) => edge.source === connection.source)) {
-        toast.error("Branch not allowed", "Only condition nodes can have multiple outgoing connections. Add a condition node to branch.");
+        toast.error(
+          t("workflowEditor.branchNotAllowedTitle", "Branch not allowed"),
+          t(
+            "workflowEditor.branchNotAllowedBody",
+            "Only condition nodes can have multiple outgoing connections. Add a condition node to branch.",
+          ),
+        );
         return;
       }
       if (condition && edges.some((edge) => edge.source === connection.source && edge.data?.branch === branch)) {
-        toast.error("Branch already connected", `The ${branch} branch already has an outgoing connection.`);
+        toast.error(
+          t("workflowEditor.branchConnectedTitle", "Branch already connected"),
+          t("workflowEditor.branchConnectedBody", "The {branch} branch already has an outgoing connection.", {
+            branch: branch ?? "",
+          }),
+        );
         return;
       }
       const id = `edge-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
@@ -850,7 +910,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
       );
       setDirty(true);
     },
-    [nodes, edges, setEdges, toast],
+    [nodes, edges, setEdges, toast, t],
   );
 
   const deleteNode = useCallback(
@@ -872,14 +932,26 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
         const errors = result.issues.filter((issue) => issue.severity === "error").length;
         const warnings = result.issues.length - errors;
         if (result.valid) {
-          toast.success("Workflow is valid", warnings > 0 ? `${warnings} warning${warnings === 1 ? "" : "s"} to review.` : "Definition and schedule look good.");
+          toast.success(
+            t("workflowEditor.validationPassedTitle", "Workflow is valid"),
+            warnings > 0
+              ? warnings === 1
+                ? t("workflowEditor.warningsToReviewOne", "{count} warning to review.", { count: warnings })
+                : t("workflowEditor.warningsToReviewMany", "{count} warnings to review.", { count: warnings })
+              : t("workflowEditor.validationClean", "Definition and schedule look good."),
+          );
         } else {
-          toast.error("Validation failed", `${errors} error${errors === 1 ? "" : "s"} must be fixed before saving.`);
+          toast.error(
+            t("workflowEditor.validationFailedTitle", "Validation failed"),
+            errors === 1
+              ? t("workflowEditor.errorsToFixOne", "{count} error must be fixed before saving.", { count: errors })
+              : t("workflowEditor.errorsToFixMany", "{count} errors must be fixed before saving.", { count: errors }),
+          );
         }
       }
       return result;
     } catch (cause) {
-      toast.error("Unable to validate workflow", toApiError(cause).message);
+      toast.error(t("workflowEditor.validateFailedTitle", "Unable to validate workflow"), toApiError(cause).message);
       return null;
     } finally {
       setValidating(false);
@@ -890,24 +962,33 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
     mutationFn: (input: WorkflowInput) => api.updateWorkflow(workflow.id, input),
     onSuccess: (updated) => {
       setDirty(false);
-      toast.success("Workflow saved", `Version ${updated.version} is now persisted.`);
+      toast.success(
+        t("workflowEditor.savedTitle", "Workflow saved"),
+        t("workflowEditor.savedBody", "Version {version} is now persisted.", { version: updated.version }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["workflows"] });
       void queryClient.invalidateQueries({ queryKey: ["workflow", workflow.id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       void queryClient.invalidateQueries({ queryKey: ["schedules"] });
     },
-    onError: (cause) => toast.error("Unable to save workflow", toApiError(cause).message),
+    onError: (cause) => toast.error(t("workflowEditor.saveFailedTitle", "Unable to save workflow"), toApiError(cause).message),
   });
 
   const saveWorkflow = async () => {
     if (!name.trim()) {
-      toast.error("Name required", "Give the workflow a name before saving.");
+      toast.error(
+        t("workflowEditor.nameRequiredTitle", "Name required"),
+        t("workflowEditor.nameRequiredBody", "Give the workflow a name before saving."),
+      );
       return;
     }
     const definition = buildDefinition();
     const result = await revalidate(false);
     if (!result?.valid) {
-      toast.error("Cannot save an invalid workflow", "Fix the errors listed in the validation panel.");
+      toast.error(
+        t("workflowEditor.cannotSaveTitle", "Cannot save an invalid workflow"),
+        t("workflowEditor.cannotSaveBody", "Fix the errors listed in the validation panel."),
+      );
       return;
     }
     const input: WorkflowInput = {
@@ -945,15 +1026,16 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
   };
 
   const groups = useMemo(() => {
-    const categories: Array<{ category: NodeCategory; label: string }> = [
-      { category: "trigger", label: "Triggers" },
-      { category: "action", label: "Actions" },
-      { category: "logic", label: "Logic" },
-      { category: "control", label: "Control" },
+    const categories: Array<{ category: NodeCategory; labelKey: string; labelFallback: string }> = [
+      { category: "trigger", labelKey: "workflowEditor.group.triggers", labelFallback: "Triggers" },
+      { category: "action", labelKey: "workflowEditor.group.actions", labelFallback: "Actions" },
+      { category: "logic", labelKey: "workflowEditor.group.logic", labelFallback: "Logic" },
+      { category: "control", labelKey: "workflowEditor.group.control", labelFallback: "Control" },
     ];
-    return categories.map(({ category, label }) => ({
+    return categories.map(({ category, labelKey, labelFallback }) => ({
       category,
-      label,
+      labelKey,
+      labelFallback,
       items: NODE_CATALOG.filter((item) => item.category === category),
     }));
   }, []);
@@ -965,7 +1047,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
     <div className="workflow-editor-shell flex h-full flex-col overflow-hidden">
       <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line/75 bg-surface/40 px-3 py-2.5 md:px-4">
         <Button variant="ghost" size="sm" icon={<ArrowLeft size={14} />} onClick={() => navigate("/workflows")}>
-          Workflows
+          {t("nav.workflows", "Workflows")}
         </Button>
         <div className="h-4 w-px bg-line" />
         <div className="min-w-[180px] flex-1">
@@ -976,7 +1058,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
               setDirty(true);
             }}
             maxLength={100}
-            aria-label="Workflow name"
+            aria-label={t("workflowEditor.workflowNameAria", "Workflow name")}
             className="w-full max-w-md rounded-md border border-transparent bg-transparent px-1.5 py-1 text-[15px] font-semibold tracking-[-0.01em] text-fg transition-colors hover:border-line focus:border-accent/60 focus:bg-surface focus:outline-none"
           />
           <div className="mt-0.5 flex items-center gap-2 px-1.5 text-[10px] text-faint">
@@ -984,28 +1066,36 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             <span>·</span>
             <span>v{workflow.version}</span>
             <span>·</span>
-            <span>updated {relativeTime(workflow.updatedAt)}</span>
-            {dirty ? <Badge tone="warning">Unsaved</Badge> : <Badge tone="success">Saved</Badge>}
+            <span>{t("workflowEditor.updatedAt", "updated {time}", { time: relativeTime(workflow.updatedAt) })}</span>
+            {dirty ? (
+              <Badge tone="warning">{t("workflowEditor.unsavedBadge", "Unsaved")}</Badge>
+            ) : (
+              <Badge tone="success">{t("workflowEditor.savedBadge", "Saved")}</Badge>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-2">
           {report ? (
             <Badge tone={report.valid ? "success" : "danger"} className="hidden sm:inline-flex">
-              {report.valid ? "Valid" : `${errorCount} errors`}
+              {report.valid ? t("workflowEditor.validBadge", "Valid") : t("workflowEditor.errorCountBadge", "{count} errors", { count: errorCount })}
             </Badge>
           ) : null}
           <Button size="sm" variant="ghost" onClick={() => void revalidate(true)} loading={validating} icon={<CheckCircle2 size={13} />}>
-            Validate
+            {t("workflowEditor.validate", "Validate")}
           </Button>
           <Button
             size="sm"
             variant="secondary"
             icon={<Play size={13} />}
             disabled={dirty || save.isPending || validating}
-            title={dirty ? "Save the workflow before running it." : "Queue a manual run"}
+            title={
+              dirty
+                ? t("workflowEditor.runDisabledTitle", "Save the workflow before running it.")
+                : t("workflowEditor.runTitle", "Queue a manual run")
+            }
             onClick={() => setRunTarget(runnableFromWorkflow(workflow))}
           >
-            Run
+            {t("workflowEditor.run", "Run")}
           </Button>
           <Button
             size="sm"
@@ -1014,7 +1104,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             loading={save.isPending}
             onClick={() => void saveWorkflow()}
           >
-            Save
+            {t("common.save", "Save")}
           </Button>
           <Button
             size="sm"
@@ -1023,7 +1113,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             icon={<Plus size={13} />}
             onClick={() => setMobilePanel("nodes")}
           >
-            Nodes
+            {t("workflowEditor.nodes", "Nodes")}
           </Button>
           <Button
             size="sm"
@@ -1032,7 +1122,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             icon={<SlidersHorizontal size={13} />}
             onClick={() => setMobilePanel("inspect")}
           >
-            Inspect
+            {t("workflowEditor.inspect", "Inspect")}
           </Button>
         </div>
       </div>
@@ -1041,7 +1131,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
         <button
           type="button"
           className="fixed inset-0 z-40 bg-black/55 md:hidden"
-          aria-label="Close editor panel"
+          aria-label={t("workflowEditor.closePanelAria", "Close editor panel")}
           onClick={() => setMobilePanel("none")}
         />
       ) : null}
@@ -1058,21 +1148,25 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
         >
           <div className="flex items-center gap-2 px-1">
             <Plus size={12} className="text-faint" />
-            <SectionLabel>Add node</SectionLabel>
+            <SectionLabel>{t("workflowEditor.addNode", "Add node")}</SectionLabel>
             <button
               type="button"
               onClick={() => setMobilePanel("none")}
               className="ml-auto rounded-md p-1 text-faint hover:text-fg md:hidden"
-              aria-label="Close node palette"
+              aria-label={t("workflowEditor.closePaletteAria", "Close node palette")}
             >
               <X size={15} />
             </button>
           </div>
-          <p className="mt-1.5 px-1 text-[10px] leading-4 text-faint">Click to place in the center, or drag onto the canvas.</p>
+          <p className="mt-1.5 px-1 text-[10px] leading-4 text-faint">
+            {t("workflowEditor.paletteHint", "Click to place in the center, or drag onto the canvas.")}
+          </p>
           <div className="mt-3 space-y-4">
             {groups.map((group) => (
               <div key={group.category}>
-                <p className="mb-1.5 px-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-faint">{group.label}</p>
+                <p className="mb-1.5 px-1 text-[9px] font-semibold uppercase tracking-[0.12em] text-faint">
+                  {t(group.labelKey, group.labelFallback)}
+                </p>
                 <div className="space-y-1">
                   {group.items.map((item) => (
                     <button
@@ -1146,24 +1240,27 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
           </ReactFlow>
 
           <div className="pointer-events-none absolute left-3 top-3 z-10 flex items-center gap-2">
-            <Badge tone="neutral">{nodes.length} nodes</Badge>
-            <Badge tone="neutral">{edges.length} edges</Badge>
-            {dirty ? <Badge tone="warning" dot>Unsaved changes</Badge> : null}
+            <Badge tone="neutral">{t("workflowEditor.nodeCount", "{count} nodes", { count: nodes.length })}</Badge>
+            <Badge tone="neutral">{t("workflowEditor.edgeCount", "{count} edges", { count: edges.length })}</Badge>
+            {dirty ? <Badge tone="warning" dot>{t("workflowEditor.unsavedChanges", "Unsaved changes")}</Badge> : null}
           </div>
           <div className="absolute right-3 top-3 z-10 flex items-center gap-2">
             <Button size="sm" variant="secondary" icon={<LayoutGrid size={13} />} onClick={relayout}>
-              Auto layout
+              {t("workflowEditor.autoLayout", "Auto layout")}
             </Button>
             <Button size="sm" variant="secondary" icon={<CheckCircle2 size={13} />} onClick={() => void revalidate(true)} loading={validating}>
-              Check
+              {t("workflowEditor.check", "Check")}
             </Button>
           </div>
           {nodes.length === 0 ? (
             <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
               <div className="max-w-xs rounded-xl border border-dashed border-line bg-panel/80 px-5 py-4 text-center">
-                <p className="text-xs font-medium text-fg">Empty canvas</p>
+                <p className="text-xs font-medium text-fg">{t("workflowEditor.emptyCanvasTitle", "Empty canvas")}</p>
                 <p className="mt-1 text-[10.5px] leading-4 text-muted">
-                  Add a trigger from the palette, then connect actions. Every workflow needs exactly one trigger.
+                  {t(
+                    "workflowEditor.emptyCanvasBody",
+                    "Add a trigger from the palette, then connect actions. Every workflow needs exactly one trigger.",
+                  )}
                 </p>
               </div>
             </div>
@@ -1181,16 +1278,18 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
         >
           <div className="flex items-start justify-between gap-3 border-b border-line/70 px-4 py-3">
             <div>
-              <SectionLabel>{selectedNode ? "Inspector" : "Workflow settings"}</SectionLabel>
+              <SectionLabel>{selectedNode ? t("workflowEditor.inspector", "Inspector") : t("workflowEditor.workflowSettings", "Workflow settings")}</SectionLabel>
               <p className="mt-1 text-[10px] leading-4 text-faint">
-                {selectedNode ? `Editing ${nodeLabel(selectedNode.type)}` : "Select a node on the canvas or edit workflow metadata."}
+                {selectedNode
+                  ? t("workflowEditor.editingNode", "Editing {name}", { name: nodeLabel(selectedNode.type) })
+                  : t("workflowEditor.inspectorEmpty", "Select a node on the canvas or edit workflow metadata.")}
               </p>
             </div>
             <button
               type="button"
               onClick={() => setMobilePanel("none")}
               className="rounded-md p-1 text-faint hover:text-fg md:hidden"
-              aria-label="Close inspector"
+              aria-label={t("workflowEditor.closeInspectorAria", "Close inspector")}
             >
               <X size={15} />
             </button>
@@ -1208,8 +1307,8 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             ) : null}
 
             <div className={selectedNode ? "space-y-4 border-t border-line/60 pt-4" : "space-y-4"}>
-              <SectionLabel>Workflow</SectionLabel>
-              <Field label="Description" optional>
+              <SectionLabel>{t("workflowEditor.workflowSection", "Workflow")}</SectionLabel>
+              <Field label={t("workflowEditor.description", "Description")} optional>
                 <Textarea
                   value={description}
                   onChange={(event) => {
@@ -1220,7 +1319,7 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
                   maxLength={2000}
                 />
               </Field>
-              <Field label="Tags" optional hint="Comma separated, up to 20.">
+              <Field label={t("workflowEditor.tags", "Tags")} optional hint={t("workflowEditor.tagsHint", "Comma separated, up to 20.")}>
                 <Input
                   value={tagsText}
                   onChange={(event) => {
@@ -1236,29 +1335,37 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
                   setEnabled(value);
                   setDirty(true);
                 }}
-                label="Workflow enabled"
-                description="Disabled workflows can still be edited and run manually."
+                label={t("workflowEditor.workflowEnabled", "Workflow enabled")}
+                description={t(
+                  "workflowEditor.workflowEnabledDesc",
+                  "Disabled workflows can still be edited and run manually.",
+                )}
               />
             </div>
 
             <div className="space-y-2 border-t border-line/60 pt-4">
               <div className="flex items-center justify-between">
-                <SectionLabel>Validation</SectionLabel>
+                <SectionLabel>{t("workflowEditor.validation", "Validation")}</SectionLabel>
                 {report ? (
                   <Badge tone={report.valid ? "success" : "danger"}>
-                    {report.valid ? "valid" : `${errorCount} errors`}
+                    {report.valid
+                      ? t("workflowEditor.validBadge", "Valid")
+                      : t("workflowEditor.errorCountBadge", "{count} errors", { count: errorCount })}
                   </Badge>
                 ) : (
-                  <span className="text-[9px] text-faint">not run</span>
+                  <span className="text-[9px] text-faint">{t("workflowEditor.notRun", "not run")}</span>
                 )}
               </div>
               {!report ? (
                 <p className="text-[10.5px] leading-4 text-faint">
-                  Run validation to check node configuration, graph structure, and schedules before saving.
+                  {t(
+                    "workflowEditor.validationHint",
+                    "Run validation to check node configuration, graph structure, and schedules before saving.",
+                  )}
                 </p>
               ) : issues.length === 0 ? (
                 <div className="flex items-center gap-2 rounded-lg border border-accent/20 bg-accent/[0.04] p-2.5 text-[10.5px] text-accent">
-                  <CheckCircle2 size={13} /> No issues found.
+                  <CheckCircle2 size={13} /> {t("workflowEditor.noIssues", "No issues found.")}
                 </div>
               ) : (
                 <ul className="space-y-1.5">
@@ -1291,9 +1398,12 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
             </div>
 
             <div className="border-t border-line/60 pt-4 text-[10px] leading-4 text-faint">
-              <p>Manual start default: {defaultNodeName("trigger.manual")}.</p>
+              <p>{t("workflowEditor.manualStartDefault", "Manual start default: {name}.", { name: defaultNodeName("trigger.manual") })}</p>
               <p className="mt-1">
-                Positions are saved with the workflow. Imported definitions without positions are auto-laid out.
+                {t(
+                  "workflowEditor.positionsNote",
+                  "Positions are saved with the workflow. Imported definitions without positions are auto-laid out.",
+                )}
               </p>
             </div>
           </div>
@@ -1306,12 +1416,13 @@ function EditorInner({ workflow }: { workflow: Workflow }) {
 }
 
 export function WorkflowEditorPage({ workflowId }: { workflowId: string }) {
+  const { t } = useI18n();
   const workflow = useQuery({ queryKey: ["workflow", workflowId], queryFn: () => api.getWorkflow(workflowId) });
 
   if (workflow.isLoading) {
     return (
       <div className="flex h-full items-center justify-center gap-2.5 text-xs text-muted">
-        <Spinner size={15} /> Loading workflow…
+        <Spinner size={15} /> {t("workflowEditor.loadingWorkflow", "Loading workflow…")}
       </div>
     );
   }
@@ -1322,17 +1433,19 @@ export function WorkflowEditorPage({ workflowId }: { workflowId: string }) {
         <div className="w-full max-w-lg rounded-xl border border-danger/30 bg-panel p-5">
           <div className="flex items-center gap-2.5 text-danger">
             <AlertTriangle size={17} />
-            <h1 className="text-sm font-semibold">Workflow unavailable</h1>
+            <h1 className="text-sm font-semibold">{t("workflowEditor.unavailableTitle", "Workflow unavailable")}</h1>
           </div>
           <p className="mt-2 text-xs leading-5 text-muted">
-            {workflow.isError ? workflow.error.message : "The workflow no longer exists in the local database."}
+            {workflow.isError
+              ? workflow.error.message
+              : t("workflowEditor.unavailableBody", "The workflow no longer exists in the local database.")}
           </p>
           <div className="mt-4 flex gap-2">
             <Button variant="primary" onClick={() => navigate("/workflows")}>
-              Back to workflows
+              {t("workflowEditor.backToWorkflows", "Back to workflows")}
             </Button>
             <Button variant="ghost" onClick={() => void workflow.refetch()}>
-              Retry
+              {t("app.retry", "Retry")}
             </Button>
           </div>
         </div>

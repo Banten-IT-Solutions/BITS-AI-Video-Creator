@@ -1,6 +1,7 @@
 import { Eye, Square } from "lucide-react";
 import { Button, ProgressBar, StatusBadge } from "./ui";
 import { formatDuration, formatTime, relativeTime } from "../lib/format";
+import { useI18n } from "../i18n";
 import type { Run } from "../lib/types";
 
 export function RunTable({
@@ -16,17 +17,18 @@ export function RunTable({
   compact?: boolean;
   busyRunId?: string | null;
 }) {
+  const { t } = useI18n();
   return (
     <div className="-mx-1 overflow-x-auto">
       <table className="w-full min-w-[640px] border-collapse text-left">
         <thead>
           <tr className="border-b border-line/70 text-[10px] uppercase tracking-[0.08em] text-faint">
-            <th className="px-2 py-2 font-medium">Status</th>
-            <th className="px-2 py-2 font-medium">Workflow</th>
-            {compact ? null : <th className="px-2 py-2 font-medium">Trigger</th>}
-            <th className="px-2 py-2 font-medium">Queued</th>
-            {compact ? null : <th className="px-2 py-2 font-medium">Duration</th>}
-            <th className="px-2 py-2 text-right font-medium">Steps</th>
+            <th className="px-2 py-2 font-medium">{t("common.status", "Status")}</th>
+            <th className="px-2 py-2 font-medium">{t("runs.workflow", "Workflow")}</th>
+            {compact ? null : <th className="px-2 py-2 font-medium">{t("runs.trigger", "Trigger")}</th>}
+            <th className="px-2 py-2 font-medium">{t("runs.queued", "Queued")}</th>
+            {compact ? null : <th className="px-2 py-2 font-medium">{t("runs.duration", "Duration")}</th>}
+            <th className="px-2 py-2 text-right font-medium">{t("runs.steps", "Steps")}</th>
             <th className="w-24 px-2 py-2" />
           </tr>
         </thead>
@@ -82,7 +84,7 @@ export function RunTable({
                         loading={busyRunId === run.id}
                         onClick={() => onCancel(run.id)}
                       >
-                        Cancel
+                        {t("common.cancel", "Cancel")}
                       </Button>
                     ) : null}
                     <Button
@@ -92,7 +94,7 @@ export function RunTable({
                       icon={<Eye size={12} />}
                       onClick={() => onSelect(run.id)}
                     >
-                      View
+                      {t("runs.view", "View")}
                     </Button>
                   </div>
                 </td>

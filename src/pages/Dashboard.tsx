@@ -24,6 +24,8 @@ import { api } from "../lib/api";
 import { dayLabel, formatNumber, humanStatus, relativeTime, statusTone } from "../lib/format";
 import { isAndroid } from "../lib/platform";
 import { navigate } from "../lib/router";
+import { useI18n } from "../i18n";
+import { GettingStartedCard } from "../components/Onboarding";
 import type { CountBucket, DayCount } from "../lib/types";
 
 function StatCard({
@@ -66,15 +68,20 @@ function StatCard({
 }
 
 function RunChart({ days }: { days: DayCount[] }) {
+  const { t } = useI18n();
   const maximum = Math.max(1, ...days.map((day) => day.succeeded + day.failed));
   return (
     <div className="px-5 py-4">
       {days.length === 0 ? (
         <div className="flex h-[184px] items-center justify-center text-xs text-faint">
-          No run activity recorded yet.
+          {t("dashboard.runChartEmpty", "No run activity recorded yet.")}
         </div>
       ) : (
-        <div className="flex h-[184px] items-end gap-2.5" role="img" aria-label="Runs over the last seven days">
+        <div
+          className="flex h-[184px] items-end gap-2.5"
+          role="img"
+          aria-label={t("dashboard.runsAria", "Runs over the last seven days")}
+        >
           {days.map((day) => {
             const total = day.succeeded + day.failed;
             const successHeight = total === 0 ? 0 : (day.succeeded / maximum) * 150;
@@ -103,12 +110,12 @@ function RunChart({ days }: { days: DayCount[] }) {
       )}
       <div className="mt-4 flex items-center gap-4 border-t border-line/60 pt-3 text-[10px] text-faint">
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-accent/75" /> Succeeded
+          <span className="h-2 w-2 rounded-sm bg-accent/75" /> {t("dashboard.succeeded", "Succeeded")}
         </span>
         <span className="inline-flex items-center gap-1.5">
-          <span className="h-2 w-2 rounded-sm bg-danger/70" /> Failed
+          <span className="h-2 w-2 rounded-sm bg-danger/70" /> {t("dashboard.failed", "Failed")}
         </span>
-        <span className="ml-auto">Last 7 days</span>
+        <span className="ml-auto">{t("dashboard.last7Days", "Last 7 days")}</span>
       </div>
     </div>
   );
@@ -140,6 +147,7 @@ function BucketList({ buckets, empty }: { buckets: CountBucket[]; empty: string 
 }
 
 export function DashboardPage() {
+  const { t } = useI18n();
   const [runId, setRunId] = useState<string | null>(null);
   const dashboard = useQuery({ queryKey: ["dashboard"], queryFn: api.getDashboard });
   const data = dashboard.data;
@@ -149,20 +157,25 @@ export function DashboardPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Studio"
-        title="Production overview"
-        description="Your local production desk: storyboards, scene voiceovers, provider workspaces, and the automation engine that supports them. Everything shown here comes from the local database."
+        eyebrow={t("dashboard.eyebrow", "Studio")}
+        title={t("dashboard.title", "Production overview")}
+        description={t(
+          "dashboard.description",
+          "Your local production desk: storyboards, scene voiceovers, provider workspaces, and the automation engine that supports them. Everything shown here comes from the local database.",
+        )}
         actions={
           <>
             <Button icon={<Mic2 size={15} />} onClick={() => navigate("/voiceover")}>
-              Voiceover studio
+              {t("dashboard.voiceoverAction", "Voiceover studio")}
             </Button>
             <Button variant="primary" icon={<Plus size={15} />} onClick={() => navigate("/storyboards")}>
-              New storyboard
+              {t("dashboard.newStoryboard", "New storyboard")}
             </Button>
           </>
         }
       />
+
+      <GettingStartedCard />
 
       <Card className="mt-5 border-accent/20 bg-accent-soft/20">
         <div className="flex flex-wrap items-center justify-between gap-4 p-5">
@@ -171,19 +184,23 @@ export function DashboardPage() {
               <Clapperboard size={19} />
             </span>
             <div className="min-w-0">
-              <p className="text-[13px] font-semibold text-fg">Build the next scene</p>
+              <p className="text-[13px] font-semibold text-fg">
+                {t("dashboard.buildNextTitle", "Build the next scene")}
+              </p>
               <p className="mt-1 max-w-2xl text-[11px] leading-5 text-muted">
-                Start from a logline, break it into shots, then preview the voiceover in the same workspace.
-                Storyboards stay on this device and export as a clean Markdown brief or JSON.
+                {t(
+                  "dashboard.buildNextBody",
+                  "Start from a logline, break it into shots, then preview the voiceover in the same workspace. Storyboards stay on this device and export as a clean Markdown brief or JSON.",
+                )}
               </p>
             </div>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" icon={<Mic2 size={13} />} onClick={() => navigate("/voiceover")}>
-              Voiceover
+              {t("dashboard.voiceover", "Voiceover")}
             </Button>
             <Button size="sm" variant="primary" icon={<Plus size={13} />} onClick={() => navigate("/storyboards")}>
-              Open storyboards
+              {t("dashboard.openStoryboards", "Open storyboards")}
             </Button>
           </div>
         </div>
@@ -194,10 +211,12 @@ export function DashboardPage() {
           <div className="flex gap-2.5 p-4">
             <MonitorSmartphone size={16} className="mt-0.5 shrink-0 text-info" />
             <div>
-              <p className="text-[11px] font-medium text-fg">Android build</p>
+              <p className="text-[11px] font-medium text-fg">{t("dashboard.androidTitle", "Android build")}</p>
               <p className="mt-1 text-[10.5px] leading-4 text-muted">
-                Workflows and schedules run while the app is open. Embedded provider sign-in and in-app updates
-                are desktop-only; use the system browser and install newer signed APKs manually.
+                {t(
+                  "dashboard.androidBody",
+                  "Workflows and schedules run while the app is open. Embedded provider sign-in and in-app updates are desktop-only; use the system browser and install newer signed APKs manually.",
+                )}
               </p>
             </div>
           </div>
@@ -210,12 +229,14 @@ export function DashboardPage() {
             <div className="flex items-start gap-3">
               <AlertTriangle size={18} className="mt-0.5 text-danger" />
               <div>
-                <p className="text-sm font-medium text-fg">Unable to read application state</p>
+                <p className="text-sm font-medium text-fg">
+                  {t("dashboard.unableTitle", "Unable to read application state")}
+                </p>
                 <p className="mt-1 text-xs leading-5 text-muted">{dashboard.error.message}</p>
               </div>
             </div>
             <Button icon={<RefreshCw size={14} />} onClick={() => void dashboard.refetch()}>
-              Retry
+              {t("app.retry", "Retry")}
             </Button>
           </div>
         </Card>
@@ -231,45 +252,50 @@ export function DashboardPage() {
         <>
           <div className="mt-6 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <StatCard
-              label="Storyboards"
+              label={t("dashboard.stat.storyboards", "Storyboards")}
               value={formatNumber(data.totalStoryboards ?? 0)}
-              detail="Scenes, shots, and prompts stored locally."
+              detail={t("dashboard.stat.storyboardsDetail", "Scenes, shots, and prompts stored locally.")}
               icon={<Clapperboard size={15} />}
               tone="accent"
             />
             <StatCard
-              label="Voiceover files"
+              label={t("dashboard.stat.voiceoverFiles", "Voiceover files")}
               value={formatNumber(data.totalVoiceoverAssets ?? 0)}
-              detail="Generated audio references for your scenes."
+              detail={t("dashboard.stat.voiceoverDetail", "Generated audio references for your scenes.")}
               icon={<Mic2 size={15} />}
               tone="info"
             />
             <StatCard
-              label="Accounts"
+              label={t("dashboard.stat.accounts", "Accounts")}
               value={formatNumber(data.totalAccounts)}
               detail={
                 data.accountsByStatus.length > 0 ? (
                   <span className="flex flex-wrap gap-1">
                     {data.accountsByStatus.map((bucket) => (
                       <Badge key={bucket.label} tone="neutral">
-                        {bucket.label.replace(/_/g, " ")} {bucket.count}
+                        {humanStatus(bucket.label)} {bucket.count}
                       </Badge>
                     ))}
                   </span>
                 ) : (
-                  "Add a provider account to begin."
+                  t("dashboard.addAccount", "Add a provider account to begin.")
                 )
               }
               icon={<Users size={15} />}
             />
             <StatCard
-              label="Run queue"
+              label={t("dashboard.stat.runQueue", "Run queue")}
               value={formatNumber(data.queuedRuns + data.runningRuns)}
               detail={
                 <span className="inline-flex items-center gap-1.5">
                   <Clock3 size={11} />
-                  {data.runningRuns} running · {data.queuedRuns} queued
-                  {successRate != null ? ` · ${successRate}% success` : ""}
+                  {t("dashboard.runningQueued", "{running} running · {queued} queued", {
+                    running: data.runningRuns,
+                    queued: data.queuedRuns,
+                  })}
+                  {successRate != null
+                    ? ` · ${t("dashboard.successRate", "{rate}% success", { rate: successRate })}`
+                    : ""}
                 </span>
               }
               icon={<Play size={15} />}
@@ -280,32 +306,38 @@ export function DashboardPage() {
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.55fr_1fr]">
             <Card>
               <CardHeader
-                title="Execution volume"
-                description="Completed runs by outcome, grouped by local calendar day."
-                actions={<Badge tone="neutral">7 days</Badge>}
+                title={t("dashboard.executionVolume", "Execution volume")}
+                description={t(
+                  "dashboard.executionVolumeDesc",
+                  "Completed runs by outcome, grouped by local calendar day.",
+                )}
+                actions={<Badge tone="neutral">{t("dashboard.sevenDays", "7 days")}</Badge>}
               />
               <RunChart days={data.runsLast7Days} />
             </Card>
 
             <Card>
               <CardHeader
-                title="Account coverage"
-                description="Distribution across configured providers."
+                title={t("dashboard.accountCoverage", "Account coverage")}
+                description={t("dashboard.accountCoverageDesc", "Distribution across configured providers.")}
                 actions={
                   <Button size="sm" variant="ghost" onClick={() => navigate("/accounts")}>
-                    Manage
+                    {t("dashboard.manage", "Manage")}
                   </Button>
                 }
               />
-              <BucketList buckets={data.accountsByProvider} empty="No accounts configured yet." />
+              <BucketList
+                buckets={data.accountsByProvider}
+                empty={t("dashboard.noAccounts", "No accounts configured yet.")}
+              />
             </Card>
           </div>
 
           <div className="mt-4 grid gap-4 xl:grid-cols-[1.55fr_1fr]">
             <Card>
               <CardHeader
-                title="Recent runs"
-                description="Newest executions across every workflow."
+                title={t("dashboard.recentRuns", "Recent runs")}
+                description={t("dashboard.recentRunsDesc", "Newest executions across every workflow.")}
                 actions={
                   <Button
                     size="sm"
@@ -313,18 +345,21 @@ export function DashboardPage() {
                     icon={<ArrowUpRight size={13} />}
                     onClick={() => navigate("/runs")}
                   >
-                    All runs
+                    {t("dashboard.allRuns", "All runs")}
                   </Button>
                 }
               />
               {data.recentRuns.length === 0 ? (
                 <EmptyState
                   icon={<Activity size={18} />}
-                  title="No runs yet"
-                  description="Run a workflow manually or let the scheduler queue one. Run history and step output will appear here."
+                  title={t("dashboard.noRunsTitle", "No runs yet")}
+                  description={t(
+                    "dashboard.noRunsDesc",
+                    "Run a workflow manually or let the scheduler queue one. Run history and step output will appear here.",
+                  )}
                   action={
                     <Button variant="primary" icon={<Play size={14} />} onClick={() => navigate("/workflows")}>
-                      Choose a workflow
+                      {t("dashboard.chooseWorkflow", "Choose a workflow")}
                     </Button>
                   }
                 />
@@ -338,11 +373,17 @@ export function DashboardPage() {
             <div className="space-y-4">
               <Card>
                 <CardHeader
-                  title="Scheduler"
-                  description={data.schedulerEnabled ? "Due workflows are queued by the local scheduler." : "The scheduler is paused in settings."}
+                  title={t("dashboard.scheduler", "Scheduler")}
+                  description={
+                    data.schedulerEnabled
+                      ? t("dashboard.schedulerOnDesc", "Due workflows are queued by the local scheduler.")
+                      : t("dashboard.schedulerPausedDesc", "The scheduler is paused in settings.")
+                  }
                   actions={
                     <Badge tone={data.schedulerEnabled ? "success" : "warning"} dot>
-                      {data.schedulerEnabled ? "Active" : "Paused"}
+                      {data.schedulerEnabled
+                        ? t("status.active", "Active")
+                        : t("status.paused", "Paused")}
                     </Badge>
                   }
                 />
@@ -350,9 +391,13 @@ export function DashboardPage() {
                   <div className="flex items-start gap-2.5">
                     <CalendarClock size={15} className="mt-0.5 shrink-0 text-muted" />
                     <div>
-                      <p className="text-muted">Next scheduled run</p>
+                      <p className="text-muted">
+                        {t("dashboard.nextScheduledRun", "Next scheduled run")}
+                      </p>
                       <p className="mt-1 text-sm font-medium text-fg">
-                        {data.nextScheduledRun ? relativeTime(data.nextScheduledRun) : "Nothing scheduled"}
+                        {data.nextScheduledRun
+                          ? relativeTime(data.nextScheduledRun)
+                          : t("dashboard.nothingScheduled", "Nothing scheduled")}
                       </p>
                       {data.nextScheduledRun ? (
                         <p className="mt-0.5 text-[10px] text-faint">{new Date(data.nextScheduledRun).toLocaleString()}</p>
@@ -361,10 +406,16 @@ export function DashboardPage() {
                   </div>
                   <div className="flex items-center justify-between border-t border-line/60 pt-3">
                     <span className="text-[11px] text-faint">
-                      {data.enabledWorkflows} enabled workflow{data.enabledWorkflows === 1 ? "" : "s"}
+                      {data.enabledWorkflows === 1
+                        ? t("dashboard.enabledWorkflowsOne", "{count} enabled workflow", {
+                            count: data.enabledWorkflows,
+                          })
+                        : t("dashboard.enabledWorkflowsMany", "{count} enabled workflows", {
+                            count: data.enabledWorkflows,
+                          })}
                     </span>
                     <Button size="sm" variant="secondary" onClick={() => navigate("/settings")}>
-                      Scheduler settings
+                      {t("dashboard.schedulerSettings", "Scheduler settings")}
                     </Button>
                   </div>
                 </div>
@@ -372,18 +423,18 @@ export function DashboardPage() {
 
               <Card>
                 <CardHeader
-                  title="Recent errors"
-                  description="Redacted application and run errors."
+                  title={t("dashboard.recentErrors", "Recent errors")}
+                  description={t("dashboard.recentErrorsDesc", "Redacted application and run errors.")}
                   actions={
                     <Button size="sm" variant="ghost" icon={<ScrollText size={13} />} onClick={() => navigate("/logs")}>
-                      Logs
+                      {t("dashboard.logs", "Logs")}
                     </Button>
                   }
                 />
                 {data.recentErrors.length === 0 ? (
                   <div className="flex items-center gap-2.5 px-5 py-6 text-xs text-muted">
                     <CheckCircle2 size={15} className="text-accent" />
-                    No errors recorded.
+                    {t("dashboard.noErrors", "No errors recorded.")}
                   </div>
                 ) : (
                   <ul className="divide-y divide-line/50">
@@ -405,10 +456,18 @@ export function DashboardPage() {
 
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <Card>
-              <CardHeader title="Account status" description="Local sign-in state tracked per provider profile." />
+              <CardHeader
+                title={t("dashboard.accountStatus", "Account status")}
+                description={t(
+                  "dashboard.accountStatusDesc",
+                  "Local sign-in state tracked per provider profile.",
+                )}
+              />
               <div className="flex flex-wrap gap-2 px-5 py-4">
                 {data.accountsByStatus.length === 0 ? (
-                  <p className="text-xs text-faint">No account status recorded.</p>
+                  <p className="text-xs text-faint">
+                    {t("dashboard.noAccountStatus", "No account status recorded.")}
+                  </p>
                 ) : (
                   data.accountsByStatus.map((bucket) => (
                     <Badge key={bucket.label} tone={statusTone(bucket.label)} dot>
@@ -421,14 +480,18 @@ export function DashboardPage() {
             <Card className="border-accent/20 bg-accent-soft/20">
               <div className="flex items-center justify-between gap-4 p-5">
                 <div>
-                  <p className="text-[13px] font-semibold text-fg">Hear the scene</p>
+                  <p className="text-[13px] font-semibold text-fg">
+                    {t("dashboard.hearScene", "Hear the scene")}
+                  </p>
                   <p className="mt-1 max-w-md text-xs leading-5 text-muted">
-                    Preview a scene with the system speech engine, or generate a downloadable voice track through
-                    your own TTS provider. The script stays attached to the storyboard.
+                    {t(
+                      "dashboard.hearSceneDesc",
+                      "Preview a scene with the system speech engine, or generate a downloadable voice track through your own TTS provider. The script stays attached to the storyboard.",
+                    )}
                   </p>
                 </div>
                 <Button variant="primary" icon={<Mic2 size={14} />} onClick={() => navigate("/voiceover")}>
-                  Open
+                  {t("dashboard.open", "Open")}
                 </Button>
               </div>
             </Card>

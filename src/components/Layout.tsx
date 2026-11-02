@@ -24,13 +24,16 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api } from "../lib/api";
 import { formatNumber, relativeTime } from "../lib/format";
 import { navigate, type Page, type Route } from "../lib/router";
+import { useI18n } from "../i18n";
 import type { DashboardStats, Settings as SettingsModel, StorageInfo } from "../lib/types";
 import { cn, IconButton, Spinner } from "./ui";
+import { WelcomeOnboarding } from "./Onboarding";
 
 type NavItem = { page: Page; label: string; icon: LucideIcon; path: string };
 
-const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
+const NAV_GROUPS: Array<{ id: string; label: string; items: NavItem[] }> = [
   {
+    id: "studio",
     label: "Studio",
     items: [
       { page: "dashboard", label: "Overview", icon: LayoutDashboard, path: "/" },
@@ -40,6 +43,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
+    id: "providers",
     label: "Providers",
     items: [
       { page: "accounts", label: "Accounts", icon: Users, path: "/accounts" },
@@ -47,6 +51,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
+    id: "automation",
     label: "Automation",
     items: [
       { page: "workflows", label: "Automations", icon: WorkflowIcon, path: "/workflows" },
@@ -55,6 +60,7 @@ const NAV_GROUPS: Array<{ label: string; items: NavItem[] }> = [
     ],
   },
   {
+    id: "system",
     label: "System",
     items: [{ page: "plugins", label: "Plugins", icon: Puzzle, path: "/plugins" }],
   },
@@ -86,6 +92,7 @@ type SettingsState = UseQueryResult<SettingsModel>;
 type StorageState = UseQueryResult<StorageInfo>;
 
 export function AppShell({ route, children }: { route: Route; children: ReactNode }) {
+  const { t } = useI18n();
   const queryClient = useQueryClient();
   const [navOpen, setNavOpen] = useState(false);
   const drawerRef = useRef<HTMLElement>(null);
@@ -178,11 +185,16 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             className="absolute inset-y-0 left-0 flex w-[86%] max-w-[324px] flex-col border-r border-line/80 bg-surface shadow-2xl"
             role="dialog"
             aria-modal="true"
-            aria-label="Navigation"
+            aria-label={t("nav.navigation", "Navigation")}
           >
             <div className="flex items-start justify-between pr-2">
               <SidebarBrand onNavigate={() => setNavOpen(false)} />
-              <IconButton label="Close navigation" size="sm" className="mt-4" onClick={() => setNavOpen(false)}>
+              <IconButton
+                label={t("nav.closeNavigation", "Close navigation")}
+                size="sm"
+                className="mt-4"
+                onClick={() => setNavOpen(false)}
+              >
                 <X size={17} />
               </IconButton>
             </div>
@@ -205,16 +217,18 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
               type="button"
               onClick={() => setNavOpen(true)}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-line bg-panel text-muted md:hidden"
-              aria-label="Open navigation"
+              aria-label={t("nav.openNavigation", "Open navigation")}
             >
               <Menu size={17} />
             </button>
             <span className="hidden text-faint sm:inline">BITS AI Video Creator</span>
             <span className="hidden text-line sm:inline">/</span>
-            <span className="truncate font-medium text-fg">{PAGE_TITLES[route.page] ?? "Workspace"}</span>
+            <span className="truncate font-medium text-fg">
+              {t(`page.${route.page}`, PAGE_TITLES[route.page] ?? "Workspace")}
+            </span>
             {route.page === "workflow" ? (
               <span className="hidden rounded border border-line bg-raised px-1.5 py-0.5 font-mono text-[9px] text-faint sm:inline">
-                editor
+                {t("page.editor", "editor")}
               </span>
             ) : null}
           </div>
@@ -222,17 +236,21 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             {dashboard.data?.runningRuns ? (
               <span className="flex items-center gap-1.5 rounded-full border border-info/25 bg-info/10 px-2 py-1 text-[10px] font-medium text-info sm:px-2.5">
                 <Activity size={11} className="animate-pulse" />
-                <span className="hidden sm:inline">{dashboard.data.runningRuns} running</span>
+                <span className="hidden sm:inline">
+                  {t("nav.running", "{count} running", { count: dashboard.data.runningRuns })}
+                </span>
                 <span className="sm:hidden">{dashboard.data.runningRuns}</span>
               </span>
             ) : null}
             {dashboard.data?.nextScheduledRun ? (
               <span className="hidden text-[10px] text-faint lg:inline">
-                Next schedule {relativeTime(dashboard.data.nextScheduledRun)}
+                {t("nav.nextSchedule", "Next schedule {time}", {
+                  time: relativeTime(dashboard.data.nextScheduledRun),
+                })}
               </span>
             ) : null}
             <IconButton
-              label="Refresh data"
+              label={t("nav.refreshData", "Refresh data")}
               size="sm"
               onClick={() => {
                 void queryClient.invalidateQueries();
@@ -248,7 +266,7 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
 
       <nav
         className="mobile-safe-bottom fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-surface/95 backdrop-blur-md md:hidden"
-        aria-label="Mobile navigation"
+        aria-label={t("nav.mobileNavigation", "Mobile navigation")}
       >
         <div className="grid grid-cols-5">
           {MOBILE_NAV.map((item) => {
@@ -269,7 +287,9 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
                   <span className="absolute inset-x-5 top-0 h-[2px] rounded-full bg-accent" />
                 ) : null}
                 <item.icon size={18} strokeWidth={active ? 2 : 1.7} />
-                <span className="block w-full truncate text-center">{item.label}</span>
+                <span className="block w-full truncate text-center">
+                  {t(`nav.${item.page}`, item.label)}
+                </span>
                 {item.page === "runs" && queue > 0 ? (
                   <span className="absolute right-3 top-1.5 min-w-[15px] rounded-full bg-info px-1 text-[8px] leading-[15px] text-bg">
                     {queue > 99 ? "99+" : queue}
@@ -284,15 +304,17 @@ export function AppShell({ route, children }: { route: Route; children: ReactNod
             className="flex min-w-0 min-h-[56px] flex-col items-center justify-center gap-1 px-1 pb-1 pt-2 text-[9px] font-medium text-faint"
           >
             <MoreHorizontal size={18} strokeWidth={1.7} />
-            <span className="block w-full truncate text-center">More</span>
+            <span className="block w-full truncate text-center">{t("nav.more", "More")}</span>
           </button>
         </div>
       </nav>
+      <WelcomeOnboarding />
     </div>
   );
 }
 
 function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
+  const { t } = useI18n();
   return (
     <button
       type="button"
@@ -301,7 +323,7 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
         onNavigate?.();
       }}
       className="flex items-center gap-3 px-5 pb-5 pt-6 text-left"
-      aria-label="Go to overview"
+      aria-label={t("nav.goToOverview", "Go to overview")}
     >
       <span className="relative flex h-9 w-9 items-center justify-center rounded-[10px] border border-accent/25 bg-accent/10 text-accent shadow-glow">
         <Clapperboard size={18} strokeWidth={1.8} />
@@ -309,7 +331,9 @@ function SidebarBrand({ onNavigate }: { onNavigate?: () => void }) {
       </span>
       <span>
         <span className="block text-[13px] font-semibold leading-4 tracking-[0.02em] text-fg">BITS AI Video Creator</span>
-        <span className="block text-[9px] font-medium uppercase tracking-[0.2em] text-faint">AI video studio</span>
+        <span className="block text-[9px] font-medium uppercase tracking-[0.2em] text-faint">
+          {t("nav.aiVideoStudio", "AI video studio")}
+        </span>
       </span>
     </button>
   );
@@ -324,19 +348,20 @@ function SidebarNav({
   queue: number;
   onNavigate?: () => void;
 }) {
+  const { t } = useI18n();
   return (
-    <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-2" aria-label="Primary navigation">
+    <nav className="flex-1 space-y-5 overflow-y-auto px-3 pb-2" aria-label={t("nav.primaryNavigation", "Primary navigation")}>
       {NAV_GROUPS.map((group) => (
-        <div key={group.label}>
+        <div key={group.id}>
           <p className="mb-1.5 px-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">
-            {group.label}
+            {t(`nav.group.${group.id}`, group.label)}
           </p>
           <div className="space-y-0.5">
             {group.items.map((item) => (
               <NavItem
                 key={item.page}
                 icon={<item.icon size={16} strokeWidth={1.7} />}
-                label={item.label}
+                label={t(`nav.${item.page}`, item.label)}
                 active={
                   activePage === item.page ||
                   (item.page === "workflows" && activePage === "workflow")
@@ -352,11 +377,13 @@ function SidebarNav({
         </div>
       ))}
       <div>
-        <p className="mb-1.5 px-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">Workspace</p>
+        <p className="mb-1.5 px-2.5 text-[9px] font-semibold uppercase tracking-[0.16em] text-faint">
+          {t("nav.group.workspace", "Workspace")}
+        </p>
         <div className="space-y-0.5">
           <NavItem
             icon={<Settings size={16} strokeWidth={1.7} />}
-            label="Settings"
+            label={t("nav.settings", "Settings")}
             active={activePage === "settings"}
             onClick={() => {
               navigate("/settings");
@@ -365,7 +392,7 @@ function SidebarNav({
           />
           <NavItem
             icon={<Database size={16} strokeWidth={1.7} />}
-            label="Storage"
+            label={t("nav.storage", "Storage")}
             active={false}
             onClick={() => {
               navigate("/settings?tab=data");
@@ -391,6 +418,7 @@ function SystemCard({
   queue: number;
   engineHealthy: boolean;
 }) {
+  const { t } = useI18n();
   return (
     <div className="mt-auto border-t border-line/70 p-3">
       <div className="rounded-xl border border-line/80 bg-panel/80 p-3">
@@ -402,31 +430,41 @@ function SystemCard({
                 dashboard.isLoading ? "bg-warn animate-pulsebar" : engineHealthy ? "bg-accent" : "bg-danger",
               )}
             />
-            {dashboard.isLoading ? "Starting" : engineHealthy ? "Studio ready" : "Studio offline"}
+            {dashboard.isLoading
+              ? t("nav.studioStarting", "Starting")
+              : engineHealthy
+                ? t("nav.studioReady", "Studio ready")
+                : t("nav.studioOffline", "Studio offline")}
           </span>
-          <span className="numeric text-[10px] text-faint">{queue} queued</span>
+          <span className="numeric text-[10px] text-faint">
+            {t("nav.queued", "{count} queued", { count: queue })}
+          </span>
         </div>
         <dl className="mt-2.5 grid grid-cols-2 gap-2 border-t border-line/60 pt-2.5 text-[10px]">
           <div>
-            <dt className="text-faint">Storyboards</dt>
+            <dt className="text-faint">{t("nav.storyboards", "Storyboards")}</dt>
             <dd className="numeric mt-0.5 text-xs text-fg">
               {formatNumber(dashboard.data?.totalStoryboards ?? 0)}
             </dd>
           </div>
           <div>
-            <dt className="text-faint">Accounts</dt>
+            <dt className="text-faint">{t("nav.accounts", "Accounts")}</dt>
             <dd className="numeric mt-0.5 text-xs text-fg">{formatNumber(dashboard.data?.totalAccounts ?? 0)}</dd>
           </div>
         </dl>
         <div className="mt-2.5 flex items-center justify-between border-t border-line/60 pt-2 text-[10px] text-faint">
           <span className="inline-flex items-center gap-1.5">
             <CircleDot size={10} className={settings.data?.schedulerEnabled === false ? "text-warn" : "text-accent"} />
-            Scheduler {settings.data?.schedulerEnabled === false ? "paused" : "on"}
+            {settings.data?.schedulerEnabled === false
+              ? t("nav.schedulerPaused", "Scheduler paused")
+              : t("nav.schedulerOn", "Scheduler on")}
           </span>
-          <span>v{storage.data?.appVersion ?? "1.0.0"}</span>
+          <span>{t("nav.version", "v{version}", { version: storage.data?.appVersion ?? "1.0.0" })}</span>
         </div>
       </div>
-      <p className="mt-2 px-1 text-[9px] leading-4 text-faint">Local-first · SQLite · OS keyring</p>
+      <p className="mt-2 px-1 text-[9px] leading-4 text-faint">
+        {t("nav.localFirst", "Local-first · SQLite · OS keyring")}
+      </p>
     </div>
   );
 }

@@ -26,12 +26,14 @@ import {
   Select,
   Textarea,
 } from "../components/ui";
+import { useI18n } from "../i18n";
 import { api, toApiError } from "../lib/api";
 import { isAndroid } from "../lib/platform";
 import { navigate } from "../lib/router";
 import type { Account, Bounds, ProviderInfo, ProviderTool, ProviderViewInfo } from "../lib/types";
 
 function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }) {
+  const { t } = useI18n();
   const toast = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(true);
@@ -57,7 +59,7 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
       const bounds = measure();
       if (!bounds) {
         setBusy(false);
-        setError("The tool area is too small. Enlarge the window and try again.");
+        setError(t("tools.tooSmallError", "The tool area is too small. Enlarge the window and try again."));
         return;
       }
       api
@@ -80,7 +82,7 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
       cancelAnimationFrame(frame);
       void api.closeProviderView().catch(() => undefined);
     };
-  }, [account.id, tool.id, measure, attempt]);
+  }, [account.id, tool.id, measure, attempt, t]);
 
   useEffect(() => {
     if (!info) return;
@@ -110,9 +112,9 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
     setBusy(true);
     try {
       await api.reloadProviderView();
-      toast.info("Provider tool reloaded");
+      toast.info(t("tools.reloadedToast", "Provider tool reloaded"));
     } catch (cause) {
-      toast.error("Unable to reload", toApiError(cause).message);
+      toast.error(t("tools.reloadError", "Unable to reload"), toApiError(cause).message);
     } finally {
       setBusy(false);
     }
@@ -126,10 +128,14 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
           <span className="truncate">
             {tool.name} · {account.name}
           </span>
-          {info ? <Badge tone="success">attached</Badge> : busy ? <Badge tone="info">opening</Badge> : null}
+          {info ? (
+            <Badge tone="success">{t("tools.attachedBadge", "attached")}</Badge>
+          ) : busy ? (
+            <Badge tone="info">{t("tools.openingBadge", "opening")}</Badge>
+          ) : null}
         </div>
         <Button size="sm" variant="ghost" icon={<RefreshCw size={12} />} onClick={() => void reload()}>
-          Reload
+          {t("tools.reload", "Reload")}
         </Button>
       </div>
       <div className="min-h-0 flex-1 p-3">
@@ -140,7 +146,7 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
           {error ? (
             <div className="max-w-sm px-6 text-center">
               <AlertTriangle size={20} className="mx-auto text-danger" />
-              <p className="mt-3 text-sm font-medium text-fg">Tool unavailable</p>
+              <p className="mt-3 text-sm font-medium text-fg">{t("tools.unavailableTitle", "Tool unavailable")}</p>
               <p className="mt-1 text-xs leading-5 text-muted">{error}</p>
               <Button
                 className="mt-4"
@@ -153,25 +159,30 @@ function ToolSession({ account, tool }: { account: Account; tool: ProviderTool }
                   setAttempt((value) => value + 1);
                 }}
               >
-                Retry
+                {t("common.retry", "Retry")}
               </Button>
             </div>
           ) : (
             <div className="flex items-center gap-2.5 text-xs text-muted">
               <Loader2 size={15} className="animate-spin text-accent" />
-              {busy ? "Opening provider web tool…" : "Provider tool is active."}
+              {busy ? t("tools.opening", "Opening provider web tool…") : t("tools.active", "Provider tool is active.")}
             </div>
           )}
         </div>
       </div>
       <p className="border-t border-line/60 px-4 py-2.5 text-[10.5px] leading-4 text-faint">
-        {tool.hint} The embedded page has no BITS AI Video Creator IPC access; downloads use the native HTTPS save dialog.
+        {tool.hint}{" "}
+        {t(
+          "tools.footerNote",
+          "The embedded page has no BITS AI Video Creator IPC access; downloads use the native HTTPS save dialog.",
+        )}
       </p>
     </div>
   );
 }
 
 export function ToolsPage() {
+  const { t } = useI18n();
   const android = isAndroid();
   const tools = useQuery({ queryKey: ["provider-tools"], queryFn: api.getProviderTools, staleTime: Infinity });
   const providers = useQuery({ queryKey: ["providers"], queryFn: api.getProviders, staleTime: Infinity });
@@ -190,9 +201,15 @@ export function ToolsPage() {
       await navigator.clipboard.writeText(selectedPrompt.prompt);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
-      toast.success("Prompt copied", "Paste it into the provider tool.");
+      toast.success(
+        t("tools.promptCopied", "Prompt copied"),
+        t("tools.promptCopiedDesc", "Paste it into the provider tool."),
+      );
     } catch {
-      toast.error("Clipboard unavailable", "Open the prompt library and copy the text manually.");
+      toast.error(
+        t("tools.clipboardError", "Clipboard unavailable"),
+        t("tools.clipboardErrorDesc", "Open the prompt library and copy the text manually."),
+      );
     }
   };
 
@@ -216,20 +233,26 @@ export function ToolsPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Provider web tools"
-        title="Tools"
+        eyebrow={t("tools.eyebrow", "Provider web tools")}
+        title={t("page.tools", "Tools")}
         description={
           android
-            ? "Provider-hosted storyboard and speech pages. Embedded signed-in webviews are not available on Android yet; open the provider page in your browser."
-            : "Provider-hosted storyboard and speech pages opened inside an isolated, signed-in webview. These are web pages, not vendor APIs."
+            ? t(
+                "tools.descriptionAndroid",
+                "Provider-hosted storyboard and speech pages. Embedded signed-in webviews are not available on Android yet; open the provider page in your browser.",
+              )
+            : t(
+                "tools.descriptionDesktop",
+                "Provider-hosted storyboard and speech pages opened inside an isolated, signed-in webview. These are web pages, not vendor APIs.",
+              )
         }
         actions={
           <>
             <Button icon={<Clapperboard size={14} />} onClick={() => navigate("/storyboards")}>
-              Native storyboards
+              {t("tools.nativeStoryboards", "Native storyboards")}
             </Button>
             <Button icon={<Mic2 size={14} />} onClick={() => navigate("/voiceover")}>
-              Voiceover studio
+              {t("tools.voiceoverStudio", "Voiceover studio")}
             </Button>
           </>
         }
@@ -238,10 +261,13 @@ export function ToolsPage() {
       <div className="mt-5 grid gap-4 xl:grid-cols-[330px_1fr]">
         <div className="space-y-3">
           <Card>
-            <CardHeader title="Available tools" description="Provider UI changes can affect availability." />
+            <CardHeader
+              title={t("tools.availableTitle", "Available tools")}
+              description={t("tools.availableDesc", "Provider UI changes can affect availability.")}
+            />
             {tools.isLoading ? (
               <div className="flex items-center gap-2 p-4 text-xs text-muted">
-                <Loader2 size={13} className="animate-spin" /> Loading tools…
+                <Loader2 size={13} className="animate-spin" /> {t("tools.loadingTools", "Loading tools…")}
               </div>
             ) : tools.isError ? (
               <p className="p-4 text-xs text-danger">{tools.error.message}</p>
@@ -278,27 +304,31 @@ export function ToolsPage() {
           {tool ? (
             <Card>
               <CardHeader
-                title="Session"
-                description={`Requires a ${providerName(tool.accountProvider)} account.`}
+                title={t("tools.sessionTitle", "Session")}
+                description={t("tools.sessionRequires", "Requires a {provider} account.", {
+                  provider: providerName(tool.accountProvider),
+                })}
                 actions={
                   <Button size="sm" variant="ghost" onClick={() => navigate("/accounts")}>
-                    Manage
+                    {t("tools.manage", "Manage")}
                   </Button>
                 }
               />
               <div className="space-y-3 p-4">
                 {accounts.isLoading ? (
                   <div className="flex items-center gap-2 text-xs text-muted">
-                    <Loader2 size={13} className="animate-spin" /> Loading accounts…
+                    <Loader2 size={13} className="animate-spin" /> {t("tools.loadingAccounts", "Loading accounts…")}
                   </div>
                 ) : compatible.length === 0 ? (
                   <div className="rounded-lg border border-warn/25 bg-warn/[0.04] p-3 text-[10.5px] leading-4 text-muted">
-                    <p className="font-medium text-warn">No compatible account</p>
+                    <p className="font-medium text-warn">{t("tools.noCompatible", "No compatible account")}</p>
                     <p className="mt-1">
-                      Add a {providerName(tool.accountProvider)} account, sign in once, then return here.
+                      {t("tools.noCompatibleDesc", "Add a {provider} account, sign in once, then return here.", {
+                        provider: providerName(tool.accountProvider),
+                      })}
                     </p>
                     <Button className="mt-3" size="sm" variant="secondary" onClick={() => navigate("/accounts")}>
-                      Add account
+                      {t("tools.addAccount", "Add account")}
                     </Button>
                   </div>
                 ) : (
@@ -306,26 +336,32 @@ export function ToolsPage() {
                     <Select
                       value={account?.id ?? ""}
                       onChange={(event) => setSelectedAccount(event.target.value)}
-                      aria-label="Tool account"
+                      aria-label={t("tools.accountAria", "Tool account")}
                     >
                       {compatible.map((item) => (
                         <option key={item.id} value={item.id}>
                           {item.name}
-                          {item.status === "needs_login" ? " — sign-in needed" : ""}
+                          {item.status === "needs_login" ? t("tools.signInNeeded", " — sign-in needed") : ""}
                         </option>
                       ))}
                     </Select>
                     <p className="text-[10px] leading-4 text-faint">
                       {android
-                        ? "Android opens the provider in your system browser. The account record remains local to BITS AI Video Creator."
-                        : "The tool reuses this account's isolated profile. Signing in remains inside the webview."}
+                        ? t(
+                            "tools.androidNote",
+                            "Android opens the provider in your system browser. The account record remains local to BITS AI Video Creator.",
+                          )
+                        : t(
+                            "tools.desktopNote",
+                            "The tool reuses this account's isolated profile. Signing in remains inside the webview.",
+                          )}
                     </p>
                     <button
                       type="button"
                       onClick={() => void openUrl(tool.url)}
                       className="inline-flex items-center gap-1.5 text-[10.5px] text-muted hover:text-accent"
                     >
-                      <ExternalLink size={11} /> Open provider URL in browser
+                      <ExternalLink size={11} /> {t("tools.openInBrowser", "Open provider URL in browser")}
                     </button>
                   </>
                 )}
@@ -335,11 +371,11 @@ export function ToolsPage() {
 
           <Card>
             <CardHeader
-              title="Prompt library"
-              description="Copy a saved prompt, then paste it into the provider page."
+              title={t("tools.promptCardTitle", "Prompt library")}
+              description={t("tools.promptCardDesc", "Copy a saved prompt, then paste it into the provider page.")}
               actions={
                 <Button size="sm" variant="ghost" onClick={() => navigate("/prompts")}>
-                  Manage
+                  {t("tools.manage", "Manage")}
                 </Button>
               }
             />
@@ -349,9 +385,9 @@ export function ToolsPage() {
                   <Select
                     value={selectedPromptId}
                     onChange={(event) => setSelectedPromptId(event.target.value)}
-                    aria-label="Saved prompt"
+                    aria-label={t("tools.promptAria", "Saved prompt")}
                   >
-                    <option value="">Choose a prompt…</option>
+                    <option value="">{t("tools.choosePrompt", "Choose a prompt…")}</option>
                     {prompts.data.map((item) => (
                       <option key={item.id} value={item.id}>
                         {item.category ? `${item.category} · ` : ""}
@@ -365,7 +401,7 @@ export function ToolsPage() {
                       readOnly
                       rows={4}
                       className="font-mono text-[10px] leading-4"
-                      aria-label="Prompt preview"
+                      aria-label={t("tools.previewAria", "Prompt preview")}
                     />
                   ) : null}
                   <Button
@@ -375,12 +411,12 @@ export function ToolsPage() {
                     disabled={!selectedPrompt}
                     onClick={() => void copyPrompt()}
                   >
-                    {copied ? "Copied" : "Copy prompt"}
+                    {copied ? t("common.copied", "Copied") : t("tools.copyPrompt", "Copy prompt")}
                   </Button>
                 </>
               ) : (
                 <p className="text-[10.5px] leading-4 text-muted">
-                  No prompts saved yet. Create reusable text in the prompt library.
+                  {t("tools.noPrompts", "No prompts saved yet. Create reusable text in the prompt library.")}
                 </p>
               )}
             </div>
@@ -390,8 +426,10 @@ export function ToolsPage() {
             <div className="flex gap-2.5 p-4">
               <MonitorSmartphone size={16} className="mt-0.5 shrink-0 text-faint" />
               <p className="text-[10px] leading-4 text-faint">
-                Tool sessions are isolated per account under the app data directory, cached up to eight views, and
-                restricted to HTTPS. Pop-ups are denied.
+                {t(
+                  "tools.securityNote",
+                  "Tool sessions are isolated per account under the app data directory, cached up to eight views, and restricted to HTTPS. Pop-ups are denied.",
+                )}
               </p>
             </div>
           </Card>
@@ -404,13 +442,20 @@ export function ToolsPage() {
             <div className="flex flex-1 items-center justify-center p-6">
               <div className="max-w-md rounded-xl border border-warn/25 bg-warn/[0.04] p-5 text-center">
                 <MonitorSmartphone size={22} className="mx-auto text-warn" />
-                <p className="mt-3 text-sm font-medium text-fg">Embedded tool sessions are not available on Android</p>
+                <p className="mt-3 text-sm font-medium text-fg">
+                  {t(
+                    "tools.androidEmbeddedTitle",
+                    "Embedded tool sessions are not available on Android",
+                  )}
+                </p>
                 <p className="mt-1 text-xs leading-5 text-muted">
-                  BITS AI Video Creator needs isolated per-account webview profiles for this tool. On Android, open the provider
-                  page in your system browser and use the saved prompt from the library.
+                  {t(
+                    "tools.androidEmbeddedBody",
+                    "BITS AI Video Creator needs isolated per-account webview profiles for this tool. On Android, open the provider page in your system browser and use the saved prompt from the library.",
+                  )}
                 </p>
                 <Button className="mt-4" variant="secondary" icon={<ExternalLink size={13} />} onClick={() => void openUrl(tool.url)}>
-                  Open {tool.name}
+                  {t("tools.openTool", "Open {tool}", { tool: tool.name })}
                 </Button>
               </div>
             </div>
@@ -418,16 +463,26 @@ export function ToolsPage() {
             <EmptyState
               className="flex-1"
               icon={<Wrench size={20} />}
-              title={compatible.length === 0 ? "Add a compatible account first" : "Choose a tool"}
+              title={
+                compatible.length === 0
+                  ? t("tools.emptyNoAccountTitle", "Add a compatible account first")
+                  : t("tools.emptyChooseTitle", "Choose a tool")
+              }
               description={
                 compatible.length === 0
-                  ? "Provider tools run in the signed-in profile of an existing account. Add one from the Accounts page."
-                  : "Select a tool and a signed-in account to open the embedded session."
+                  ? t(
+                      "tools.emptyNoAccountDesc",
+                      "Provider tools run in the signed-in profile of an existing account. Add one from the Accounts page.",
+                    )
+                  : t(
+                      "tools.emptyChooseDesc",
+                      "Select a tool and a signed-in account to open the embedded session.",
+                    )
               }
               action={
                 compatible.length === 0 ? (
                   <Button variant="primary" onClick={() => navigate("/accounts")}>
-                    Go to accounts
+                    {t("tools.goToAccounts", "Go to accounts")}
                   </Button>
                 ) : undefined
               }

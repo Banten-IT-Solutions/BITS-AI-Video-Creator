@@ -1,6 +1,7 @@
 import clsx from "clsx";
 import { CheckCircle2, Info, TriangleAlert, X, XCircle } from "lucide-react";
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useI18n } from "../i18n";
 
 type ToastTone = "success" | "error" | "info" | "warning";
 
@@ -61,6 +62,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 }
 
 function ToastCard({ toast, onClose }: { toast: ToastItem; onClose: () => void }) {
+  const { t } = useI18n();
   useEffect(() => {
     const timer = window.setTimeout(onClose, toast.tone === "error" ? 8_000 : 5_000);
     return () => window.clearTimeout(timer);
@@ -95,7 +97,7 @@ function ToastCard({ toast, onClose }: { toast: ToastItem; onClose: () => void }
       <button
         type="button"
         onClick={onClose}
-        aria-label="Dismiss notification"
+        aria-label={t("common.dismissNotification", "Dismiss notification")}
         className="shrink-0 rounded p-0.5 text-faint transition-colors hover:text-fg"
       >
         <X size={14} />

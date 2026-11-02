@@ -1,4 +1,5 @@
 import { invoke } from "@tauri-apps/api/core";
+import { translate } from "../i18n";
 import type {
   Account,
   AccountFilter,
@@ -59,12 +60,12 @@ export function toApiError(error: unknown): ApiError {
   if (error && typeof error === "object" && "message" in error) {
     const value = error as { message?: unknown; code?: unknown };
     return new ApiError(
-      typeof value.message === "string" ? value.message : "The operation failed",
+      typeof value.message === "string" ? value.message : translate("common.operationFailed", "The operation failed"),
       typeof value.code === "string" ? value.code : "unknown",
     );
   }
   if (typeof error === "string") return new ApiError(error);
-  return new ApiError("The operation failed. Check the logs for details.");
+  return new ApiError(translate("common.operationFailedDetail", "The operation failed. Check the logs for details."));
 }
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {

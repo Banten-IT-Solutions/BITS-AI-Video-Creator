@@ -24,14 +24,16 @@ import {
   Select,
 } from "../components/ui";
 import { api, toApiError } from "../lib/api";
-import { formatNumber } from "../lib/format";
+import { formatNumber, humanStatus } from "../lib/format";
 import { navigate } from "../lib/router";
 import type { RunStatus } from "../lib/types";
+import { useI18n } from "../i18n";
 
 const PAGE_SIZE = 50;
 const STATUSES: RunStatus[] = ["queued", "running", "succeeded", "failed", "cancelled", "missed"];
 
 export function RunsPage() {
+  const { t } = useI18n();
   const toast = useToast();
   const queryClient = useQueryClient();
   const [status, setStatus] = useState("");
@@ -68,12 +70,15 @@ export function RunsPage() {
   const cancel = useMutation({
     mutationFn: (id: string) => api.cancelRun(id),
     onSuccess: (requested, id) => {
-      toast.info(requested ? "Cancellation requested" : "Run already finished", `Run ${id.slice(0, 8)}`);
+      toast.info(
+        requested ? t("runs.cancellationRequested", "Cancellation requested") : t("runs.alreadyFinished", "Run already finished"),
+        t("runs.runToken", "Run {id}", { id: id.slice(0, 8) }),
+      );
       void queryClient.invalidateQueries({ queryKey: ["runs"] });
       void queryClient.invalidateQueries({ queryKey: ["run", id] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
     },
-    onError: (cause) => toast.error("Unable to cancel run", toApiError(cause).message),
+    onError: (cause) => toast.error(t("runs.unableToCancel", "Unable to cancel run"), toApiError(cause).message),
   });
 
   const list = runs.data ?? [];
@@ -83,22 +88,25 @@ export function RunsPage() {
   return (
     <PageContainer>
       <PageHeader
-        eyebrow="Execution"
-        title="Run history"
-        description="Persisted executions from manual, scheduled, and retried runs. Step output is captured per node and remains available after restarts."
+        eyebrow={t("runs.eyebrow", "Execution")}
+        title={t("runs.title", "Run history")}
+        description={t(
+          "runs.description",
+          "Persisted executions from manual, scheduled, and retried runs. Step output is captured per node and remains available after restarts.",
+        )}
         actions={
           <Button icon={<RefreshCw size={14} />} loading={runs.isFetching} onClick={() => void runs.refetch()}>
-            Refresh
+            {t("common.refresh", "Refresh")}
           </Button>
         }
       />
 
       <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {[
-          { label: "Running", value: stats?.runningRuns, icon: <Activity size={14} />, tone: "text-info" },
-          { label: "Queued", value: stats?.queuedRuns, icon: <Clock3 size={14} />, tone: "text-warn" },
-          { label: "Succeeded", value: stats?.succeededRuns, icon: <CheckCircle2 size={14} />, tone: "text-accent" },
-          { label: "Failed", value: stats?.failedRuns, icon: <XCircle size={14} />, tone: "text-danger" },
+          { label: t("status.running", "Running"), value: stats?.runningRuns, icon: <Activity size={14} />, tone: "text-info" },
+          { label: t("status.queued", "Queued"), value: stats?.queuedRuns, icon: <Clock3 size={14} />, tone: "text-warn" },
+          { label: t("status.succeeded", "Succeeded"), value: stats?.succeededRuns, icon: <CheckCircle2 size={14} />, tone: "text-accent" },
+          { label: t("status.failed", "Failed"), value: stats?.failedRuns, icon: <XCircle size={14} />, tone: "text-danger" },
         ].map((item) => (
           <Card key={item.label}>
             <div className="flex items-center justify-between p-4">
@@ -114,8 +122,11 @@ export function RunsPage() {
 
       <Card className="mt-4 overflow-hidden">
         <CardHeader
-          title="Executions"
-          description="Newest first. Click a run to inspect steps, input, output, and cancellation state."
+          title={t("runs.executions", "Executions")}
+          description={t(
+            "runs.executionsDesc",
+            "Newest first. Click a run to inspect steps, input, output, and cancellation state.",
+          )}
           actions={
             <div className="flex flex-wrap items-center gap-2">
               <Select
@@ -125,12 +136,12 @@ export function RunsPage() {
                   setPage(0);
                 }}
                 className="h-8 w-[136px] text-xs"
-                aria-label="Filter by run status"
+                aria-label={t("runs.filterByStatus", "Filter by run status")}
               >
-                <option value="">All statuses</option>
+                <option value="">{t("runs.allStatuses", "All statuses")}</option>
                 {STATUSES.map((item) => (
                   <option key={item} value={item}>
-                    {item}
+                    {humanStatus(item)}
                   </option>
                 ))}
               </Select>
@@ -141,9 +152,9 @@ export function RunsPage() {
                   setPage(0);
                 }}
                 className="h-8 w-[190px] text-xs"
-                aria-label="Filter by workflow"
+                aria-label={t("runs.filterByWorkflow", "Filter by workflow")}
               >
-                <option value="">All workflows</option>
+                <option value="">{t("runs.allWorkflows", "All workflows")}</option>
                 {(workflows.data ?? []).map((workflow) => (
                   <option key={workflow.id} value={workflow.id}>
                     {workflow.name}
@@ -160,7 +171,7 @@ export function RunsPage() {
                     setPage(0);
                   }}
                 >
-                  Clear
+                  {t("runs.clear", "Clear")}
                 </Button>
               ) : null}
             </div>
@@ -178,18 +189,24 @@ export function RunsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/5 p-3">
               <p className="text-xs text-danger">{runs.error.message}</p>
               <Button size="sm" variant="secondary" onClick={() => void runs.refetch()}>
-                Retry
+                {t("common.retry", "Retry")}
               </Button>
             </div>
           </div>
         ) : list.length === 0 ? (
           <EmptyState
             icon={<ListChecks size={20} />}
-            title={hasFilters ? "No runs match these filters" : "No runs recorded"}
+            title={hasFilters ? t("runs.noRunsFiltered", "No runs match these filters") : t("runs.noRuns", "No runs recorded")}
             description={
               hasFilters
-                ? "Change the status or workflow filter. Older runs remain stored regardless of the current filter."
-                : "Run a workflow manually or enable a schedule. Queued and completed runs appear here with their step history."
+                ? t(
+                    "runs.noRunsFilteredDesc",
+                    "Change the status or workflow filter. Older runs remain stored regardless of the current filter.",
+                  )
+                : t(
+                    "runs.noRunsDesc",
+                    "Run a workflow manually or enable a schedule. Queued and completed runs appear here with their step history.",
+                  )
             }
             action={
               hasFilters ? (
@@ -201,11 +218,11 @@ export function RunsPage() {
                     setPage(0);
                   }}
                 >
-                  Clear filters
+                  {t("runs.clearFilters", "Clear filters")}
                 </Button>
               ) : (
                 <Button variant="primary" onClick={() => navigate("/workflows")}>
-                  Open workflows
+                  {t("runs.openWorkflows", "Open workflows")}
                 </Button>
               )
             }
@@ -223,9 +240,9 @@ export function RunsPage() {
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line/70 px-5 py-3">
           <span className="text-[10px] text-faint">
-            Page {page + 1}
+            {t("runs.page", "Page {page}", { page: page + 1 })}
             {list.length > 0 ? ` · ${page * PAGE_SIZE + 1}–${page * PAGE_SIZE + list.length}` : ""}
-            {runs.isFetching ? " · refreshing" : ""}
+            {runs.isFetching ? ` · ${t("runs.refreshing", "refreshing")}` : ""}
           </span>
           <div className="flex items-center gap-2">
             <Button
@@ -235,7 +252,7 @@ export function RunsPage() {
               disabled={page === 0}
               onClick={() => setPage((value) => Math.max(0, value - 1))}
             >
-              Previous
+              {t("runs.previous", "Previous")}
             </Button>
             <Button
               size="sm"
@@ -243,7 +260,7 @@ export function RunsPage() {
               disabled={list.length < PAGE_SIZE}
               onClick={() => setPage((value) => value + 1)}
             >
-              Next
+              {t("runs.next", "Next")}
               <ChevronRight size={13} />
             </Button>
           </div>
@@ -251,8 +268,8 @@ export function RunsPage() {
       </Card>
 
       <div className="mt-4 flex flex-wrap items-center gap-2 text-[10.5px] text-faint">
-        <Badge tone="neutral">Auto-refresh 4s</Badge>
-        <span>Runs are executed in a background worker; closing the window does not mark active runs succeeded.</span>
+        <Badge tone="neutral">{t("runs.autoRefresh", "Auto-refresh 4s")}</Badge>
+        <span>{t("runs.workerNote", "Runs are executed in a background worker; closing the window does not mark active runs succeeded.")}</span>
       </div>
 
       <RunDetailDialog runId={runId} open={runId != null} onClose={() => setRunId(null)} />
