@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { save } from "@tauri-apps/plugin-dialog";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import {
   AlertTriangle,
   AudioLines,
@@ -480,7 +480,15 @@ function VoiceoverWorkspace({
                       {asset.format.toUpperCase()} · {formatBytes(asset.bytes)} · {relativeTime(asset.createdAt)}
                     </p>
                   </div>
-                  <IconButton label="Open audio file" size="sm" onClick={() => void openPath(asset.path)}>
+                  <IconButton
+                    label="Show audio file in folder"
+                    size="sm"
+                    onClick={() =>
+                      void revealItemInDir(asset.path).catch((cause) =>
+                        toast.error("Unable to show audio file", String(cause)),
+                      )
+                    }
+                  >
                     <FolderOpen size={12} />
                   </IconButton>
                   <IconButton
